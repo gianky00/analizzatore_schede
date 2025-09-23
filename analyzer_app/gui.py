@@ -246,6 +246,7 @@ class App:
         self.tree_cert.tag_configure('child_premature', foreground='red', font=tkFont.Font(family='Consolas', size=8, weight='bold'))
 
         data_for_tree = self._prepare_data_for_treeview()
+        child_item_counter = 0
         for row_data in data_for_tree:
             tags = []
             if row_data["Prima Emiss."] > 0: tags.append('parent_has_premature_uses')
@@ -262,7 +263,9 @@ class App:
                 child_tags = ['child_base']
                 if uso_info.used_before_emission: child_tags.append('child_premature')
 
-                self.tree_cert.insert(parent_item_id, "end", values=child_vals, tags=tuple(child_tags), iid=uso_info.file_path)
+                unique_iid = f"{uso_info.file_path}_{child_item_counter}"
+                self.tree_cert.insert(parent_item_id, "end", values=child_vals, tags=tuple(child_tags), iid=unique_iid)
+                child_item_counter += 1
 
         self.tree_cert.bind("<Double-1>", self._on_tree_item_double_click)
         self.tree_cert.bind("<Button-1>", self._on_tree_item_single_click)
