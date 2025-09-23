@@ -282,10 +282,10 @@ class App:
         self.sugg_results_text.config(state=tk.NORMAL)
         self.sugg_results_text.delete("1.0", tk.END)
         if not results:
-            self.sugg_results_text.insert(tk.END", "Nessuna alternativa valida trovata.")
+            self.sugg_results_text.insert(tk.END, "Nessuna alternativa valida trovata.")
         else:
             for res in results:
-                self.sugg_results_text.insert(tk.END", f"ID: {res.id_certificato}, Modello: {res.modello_strumento}, Range: {res.range}\n")
+                self.sugg_results_text.insert(tk.END, f"ID: {res.id_certificato}, Modello: {res.modello_strumento}, Range: {res.range}\n")
         self.sugg_results_text.config(state=tk.DISABLED)
 
     def _generate_report_word(self):
