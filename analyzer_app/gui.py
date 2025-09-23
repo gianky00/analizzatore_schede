@@ -9,6 +9,7 @@ import pyperclip # type: ignore
 import re
 from collections import Counter, defaultdict
 from datetime import datetime
+from typing import List, Dict
 
 from . import config
 from . import excel_io
