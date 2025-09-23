@@ -7,21 +7,21 @@ import threading
 import queue
 import pyperclip # type: ignore
 import re
+import subprocess
+import sys
 from collections import Counter, defaultdict
 from datetime import datetime
 from typing import List, Dict
-import multiprocessing
 
 from . import config
 from . import excel_io
 from . import analysis
 from . import reporting
-from .data_models import InstrumentSheet, CertificateUsage
+from .data_models import CertificateUsage
 
 logger = logging.getLogger(__name__)
 
 def read_file_worker(q, file_path):
-    """Helper function to run file reading in a separate process to allow for timeouts."""
     try:
         raw_data = excel_io.read_instrument_sheet_raw_data(file_path)
         q.put(('success', raw_data))
@@ -149,8 +149,7 @@ class App:
                         raise TimeoutError("La lettura del file ha superato i 30 secondi.")
 
                     status, result = q.get()
-                    if status == 'error':
-                        raise result
+                    if status == 'error': raise result
                     raw_data = result
 
                     self.analysis_queue.put(('log', f"Fase 2: Analisi logica per {filename}"))
@@ -213,13 +212,13 @@ class App:
     def _populate_cruscotto_tab(self):
         for widget in self.cruscotto_tab.winfo_children(): widget.destroy()
         stats_frame = ttk.LabelFrame(self.cruscotto_tab, text="Statistiche Generali", padding=10)
-        stats_frame.pack(fill=tk.X, pady=5)
+        stats_frame.pack(fill=tk.X, pady=5, anchor='n')
         ttk.Label(stats_frame, text=f"File analizzati: {self.candidate_files_count}").pack(anchor=tk.W)
         ttk.Label(stats_frame, text=f"Schede validate: {self.validated_file_count}").pack(anchor=tk.W)
         ttk.Label(stats_frame, text=f"Utilizzi certificati totali: {len(self.all_cert_usages)}").pack(anchor=tk.W)
         ttk.Label(stats_frame, text=f"Errori di compilazione trovati: {len(self.human_errors_details)}").pack(anchor=tk.W)
         action_frame = ttk.LabelFrame(self.cruscotto_tab, text="Azioni", padding=10)
-        action_frame.pack(fill=tk.X, pady=5)
+        action_frame.pack(fill=tk.X, pady=5, anchor='n')
         btn_report = ttk.Button(action_frame, text="Stampa Report Anomalie (Word)", command=self._generate_report_word, style="Accent.TButton")
         btn_report.pack(side=tk.LEFT)
 
@@ -238,33 +237,51 @@ class App:
 
         col_widths = {"ID Certificato":180, "Utilizzi":60, "Tipologia Principale":170, "Congrui":70, "Non Congrui":90, "Prima Emiss.":90, "Scaduti":70, "Scadenza Recente":120, "Range Principale":200}
         for col_name in cols:
-            self.tree_cert.heading(col_name, text=col_name, anchor=tk.W)
+            self.tree_cert.heading(col_name, text=col_name, anchor=tk.W, command=partial(self._sort_treeview, self.tree_cert, col_name, False))
             self.tree_cert.column(col_name, width=col_widths.get(col_name, 120), minwidth=60, anchor=tk.W)
 
         self.tree_cert.tag_configure('child_base', font=tkFont.Font(family='Consolas', size=8), background='#FAFAFA')
+        self.tree_cert.tag_configure('parent_has_premature_uses', foreground='red', font=tkFont.Font(weight='bold'))
+        self.tree_cert.tag_configure('child_premature', foreground='red', font=tkFont.Font(family='Consolas', size=8, weight='bold'))
 
         data_for_tree = self._prepare_data_for_treeview()
-        for i, row_data in enumerate(data_for_tree):
-            parent_item_id = self.tree_cert.insert("", "end", values=[row_data.get(col, "") for col in cols])
+        for row_data in data_for_tree:
+            tags = []
+            if row_data["Prima Emiss."] > 0: tags.append('parent_has_premature_uses')
+            parent_item_id = self.tree_cert.insert("", "end", values=[row_data.get(col, "") for col in cols], tags=tags)
+
             cert_id = row_data["ID Certificato"]
-            usi_dett = self.cert_details_map.get(cert_id, {}).get('dettaglio_usi_list', [])
+            usi_dett = sorted(self.cert_details_map.get(cert_id, {}).get('dettaglio_usi_list', []), key=lambda x: x.card_date, reverse=True)
             for uso_info in usi_dett:
                 child_vals = [""] * len(cols)
                 child_vals[0] = f"  └─File: {uso_info.file_name} (Scheda: {uso_info.card_date.strftime('%d/%m/%Y') if uso_info.card_date else 'N/D'})"
-                child_vals[2] = f"Tip.Strum: {uso_info.tipologia_strumento_scheda}"
-                child_vals[3] = "Congruo" if uso_info.is_congruent else "NON Congruo" if uso_info.is_congruent is False else "N/V"
-                self.tree_cert.insert(parent_item_id, "end", values=child_vals, tags=('child_base',))
+                child_vals[2] = f"Tip.Strum: {uso_info.tipologia_strumento_scheda}, Modello: {uso_info.modello_L9_scheda}"
+                congr_str = "Congruo" if uso_info.is_congruent else "NON Congruo" if uso_info.is_congruent is False else "N/V"
+                child_vals[3] = f"{congr_str} ({uso_info.congruency_notes})"
+                child_tags = ['child_base']
+                if uso_info.used_before_emission: child_tags.append('child_premature')
 
-        self.tree_cert.bind("<Double-1>", self._on_tree_item_interaction)
+                self.tree_cert.insert(parent_item_id, "end", values=child_vals, tags=tuple(child_tags), iid=uso_info.file_path)
+
+        self.tree_cert.bind("<Double-1>", self._on_tree_item_double_click)
+        self.tree_cert.bind("<Button-1>", self._on_tree_item_single_click)
 
     def _populate_suggerimenti_tab(self):
         for widget in self.suggerimenti_tab.winfo_children(): widget.destroy()
         input_frame = ttk.LabelFrame(self.suggerimenti_tab, text="Parametri Ricerca", padding=10)
         input_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(input_frame, text="Range Richiesto:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(input_frame, text="ID Certificato (opz.):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.cert_id_sugg_entry = ttk.Entry(input_frame, width=25)
+        self.cert_id_sugg_entry.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
+        ttk.Label(input_frame, text="Range Richiesto:").grid(row=0, column=2, padx=(10,5), pady=5, sticky=tk.W)
         self.range_sugg_entry = ttk.Entry(input_frame, width=30)
-        self.range_sugg_entry.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
-        ttk.Button(input_frame, text="Cerca", command=self._search_suggestions).grid(row=0, column=2, padx=5)
+        self.range_sugg_entry.grid(row=0, column=3, sticky=tk.EW, padx=5, pady=5)
+        ttk.Label(input_frame, text="Data Rif. (gg/mm/aaaa):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.date_sugg_entry = ttk.Entry(input_frame, width=15)
+        self.date_sugg_entry.insert(0, datetime.now().strftime('%d/%m/%Y'))
+        self.date_sugg_entry.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Button(input_frame, text="Cerca Alternative", command=self._search_suggestions, style="Accent.TButton").grid(row=1, column=2, columnspan=2, padx=5, pady=5)
+
         self.sugg_results_text = tk.Text(self.suggerimenti_tab, wrap=tk.WORD, state=tk.DISABLED, font=("Consolas", 10))
         self.sugg_results_text.pack(fill='both', expand=True, pady=5)
 
@@ -297,24 +314,56 @@ class App:
             })
         return sorted(tree_data, key=lambda x: -x["Utilizzi"])
 
-    def _on_tree_item_interaction(self, event):
+    def _on_tree_item_single_click(self, event):
+        item_id = self.tree_cert.identify_row(event.y)
+        if not self.tree_cert.parent(item_id):
+            if item_id == self.last_clicked_item_id_for_toggle[0]:
+                self.tree_cert.item(item_id, open=not self.tree_cert.item(item_id, 'open'))
+                self.last_clicked_item_id_for_toggle[0] = None
+            else:
+                if self.last_clicked_item_id_for_toggle[0]: self.tree_cert.item(self.last_clicked_item_id_for_toggle[0], open=False)
+                self.tree_cert.item(item_id, open=True)
+                self.last_clicked_item_id_for_toggle[0] = item_id
+
+    def _on_tree_item_double_click(self, event):
         item_id = self.tree_cert.identify_row(event.y)
         if not item_id: return
-        logger.info(f"Interacted with tree item: {self.tree_cert.item(item_id, 'values')}")
+
+        if self.tree_cert.parent(item_id): # Is a child item
+            self._on_file_click(item_id, os.path.basename(item_id), open_file_direct=True)
+        else: # Is a parent item
+            values = self.tree_cert.item(item_id, 'values')
+            cert_id = values[0]
+            range_val = values[8]
+            self.notebook.select(self.suggerimenti_tab)
+            self.cert_id_sugg_entry.delete(0, tk.END)
+            self.cert_id_sugg_entry.insert(0, cert_id)
+            self.range_sugg_entry.delete(0, tk.END)
+            self.range_sugg_entry.insert(0, range_val)
+            self._search_suggestions()
 
     def _search_suggestions(self):
-        range_req = self.range_sugg_entry.get()
-        if not range_req:
-            messagebox.showwarning("Input Mancante", "Inserire un range per la ricerca.", parent=self.root)
+        cert_id_target = self.cert_id_sugg_entry.get().strip()
+        range_req = self.range_sugg_entry.get().strip()
+        date_ref_str = self.date_sugg_entry.get().strip()
+
+        date_ref = excel_io.parse_date_robust(date_ref_str)
+        if not date_ref:
+            messagebox.showerror("Errore Data", "Formato data non valido. Usare gg/mm/aaaa.", parent=self.root)
             return
-        results = analysis.trova_strumenti_alternativi(range_req, datetime.now(), self.strumenti_campione)
+
+        results = analysis.trova_strumenti_alternativi(range_req, date_ref, self.strumenti_campione)
         self.sugg_results_text.config(state=tk.NORMAL)
         self.sugg_results_text.delete("1.0", tk.END)
         if not results:
             self.sugg_results_text.insert(tk.END, "Nessuna alternativa valida trovata.")
         else:
+            count = 0
             for res in results:
-                self.sugg_results_text.insert(tk.END, f"ID: {res.id_certificato}, Modello: {res.modello_strumento}, Range: {res.range}\n")
+                if res.id_certificato == cert_id_target: continue
+                count += 1
+                self.sugg_results_text.insert(tk.END, f"ID: {res.id_certificato}, Modello: {res.modello_strumento}, Range: {res.range}, Scadenza: {res.scadenza.strftime('%d/%m/%Y')}\n")
+            if count == 0: self.sugg_results_text.insert(tk.END, "Nessuna alternativa valida trovata (escludendo il certificato di partenza).")
         self.sugg_results_text.config(state=tk.DISABLED)
 
     def _generate_report_word(self):
@@ -332,7 +381,22 @@ class App:
         else:
             messagebox.showwarning("Report non Generato", "Nessuna anomalia significativa trovata o si è verificato un errore.", parent=self.root)
 
+    def _on_file_click(self, file_path, filename, open_file_direct=False):
+        try:
+            pyperclip.copy(file_path)
+            action_text = "Aprire il file?" if open_file_direct else f"Aprire la cartella del file '{filename}'?"
+            if messagebox.askyesno("Percorso Copiato", f"Percorso copiato negli appunti:\n{file_path}\n\n{action_text}", parent=self.root):
+                target = file_path if open_file_direct else os.path.dirname(file_path)
+                if sys.platform == "win32": os.startfile(target)
+                else: subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", target])
+        except Exception as e:
+            messagebox.showerror("Errore", f"Impossibile aprire il percorso: {e}", parent=self.root)
+
     def _on_close(self):
         if messagebox.askokcancel("Chiudi", "Vuoi davvero chiudere l'applicazione?"):
             self.root.destroy()
             logger.info("Applicazione chiusa dall'utente.")
+
+    def _sort_treeview(self, tree, col, reverse):
+        # Dummy sort function, can be implemented fully if needed
+        pass
