@@ -125,14 +125,24 @@ class App:
             results = []
             for i, filename in enumerate(candidate_files):
                 file_path = os.path.join(folder_path, filename)
+
+                self.analysis_queue.put(('log', f"--- INIZIO elaborazione file {i+1}/{self.candidate_files_count}: {filename} ---"))
+
                 self.analysis_queue.put(('progress', (i + 1, f"Analisi di: {filename}")))
                 try:
+                    self.analysis_queue.put(('log', f"Fase 1: Lettura dati da {filename}"))
                     raw_data = excel_io.read_instrument_sheet_raw_data(file_path)
+
+                    self.analysis_queue.put(('log', f"Fase 2: Analisi logica per {filename}"))
                     sheet_result = analysis.analyze_sheet_data(raw_data, self.strumenti_campione)
+
                     results.append(sheet_result)
+                    self.analysis_queue.put(('log', f"--- FINE elaborazione file: {filename}. Risultato: {sheet_result.status}"))
+
                 except Exception as e:
                     logger.error(f"Errore durante l'analisi del file {filename}: {e}", exc_info=True)
                     results.append(InstrumentSheet(file_path=file_path, base_filename=filename, status=f"Errore: {e}", is_valid=False))
+                    self.analysis_queue.put(('log', f"--- ERRORE elaborazione file: {filename} ---"))
 
             self.analysis_queue.put(('done', results))
         except Exception as e:
