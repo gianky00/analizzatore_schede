@@ -96,13 +96,16 @@ class App:
         self.cert_details_tab = ttk.Frame(self.notebook, padding=10)
         self.correction_tab = ttk.Frame(self.notebook, padding=10)
         self.suggerimenti_tab = ttk.Frame(self.notebook, padding=10)
+        self.autofill_tab = ttk.Frame(self.notebook, padding=10)
         self.config_tab = ttk.Frame(self.notebook, padding=10)
 
         self.notebook.add(self.cruscotto_tab, text=' Cruscotto Riepilogativo ', state=tk.DISABLED)
         self.notebook.add(self.cert_details_tab, text=' Dettaglio Utilizzo Certificati ', state=tk.DISABLED)
         self.notebook.add(self.correction_tab, text=' Correzione Schede ', state=tk.DISABLED)
         self.notebook.add(self.suggerimenti_tab, text=' Suggerimenti Strumenti ', state=tk.DISABLED)
+        self.notebook.add(self.autofill_tab, text=' Compilatore Automatico ', state=tk.DISABLED)
         self.notebook.add(self.config_tab, text=' Configurazione ')
+
         self._populate_config_tab()
         self.notebook.select(self.config_tab)
 
@@ -204,12 +207,13 @@ class App:
         self._update_cert_details_map()
 
     def _populate_results_ui(self):
-        for tab in [self.cruscotto_tab, self.cert_details_tab, self.correction_tab, self.suggerimenti_tab, self.config_tab]:
+        for tab in [self.cruscotto_tab, self.cert_details_tab, self.correction_tab, self.suggerimenti_tab, self.autofill_tab, self.config_tab]:
             self.notebook.tab(tab, state=tk.NORMAL)
         self._populate_cruscotto_tab()
         self._populate_cert_details_tab()
         self._populate_correction_tab()
         self._populate_suggerimenti_tab()
+        self._populate_autofill_tab()
         self._populate_config_tab()
         self.notebook.select(self.cruscotto_tab)
 
@@ -413,34 +417,73 @@ class App:
         save_button.pack(pady=10)
 
     def _update_cert_details_map(self):
+        """
+        Processes the flat list of all certificate usages (`self.all_cert_usages`)
+        and aggregates them into a structured dictionary (`self.cert_details_map`)
+        keyed by certificate ID. This method simplifies the data structure for easier
+        consumption by the UI.
+        """
         self.cert_details_map.clear()
         for usage in self.all_cert_usages:
+            # Get or create the dictionary for this certificate ID using the defaultdict factory
             details = self.cert_details_map[usage.certificate_id]
-            if not details.get('id'):
-                details.update({'id': usage.certificate_id, 'utilizzi': 0, 'dettaglio_usi_list': [], 'date_utilizzo_obj_set': set(), 'range_su_scheda_counter': Counter(), 'tipologie_scheda_associate_counter': Counter(), 'usi_congrui': 0, 'usi_total_incongrui': 0, 'usi_prima_emissione': 0, 'usi_scaduti_puri': 0})
+
+            # The defaultdict factory initializes the structure, but we must set the unique ID
+            # the first time we encounter this certificate.
+            if not details['id']:
+                details['id'] = usage.certificate_id
+
+            # Increment usage counters
             details['utilizzi'] += 1
             details['dettaglio_usi_list'].append(usage)
-            if usage.card_date: details['date_utilizzo_obj_set'].add(usage.card_date)
-            details['range_su_scheda_counter'][usage.instrument_range_on_card] += 1
-            details['tipologie_scheda_associate_counter'][usage.tipologia_strumento_scheda] += 1
-            if usage.is_congruent: details['usi_congrui'] += 1
-            elif usage.is_congruent is False: details['usi_total_incongrui'] += 1
-            if usage.used_before_emission: details['usi_prima_emissione'] += 1
-            elif usage.is_expired_at_use: details['usi_scaduti_puri'] += 1
+            if usage.card_date:
+                details['date_utilizzo_obj_set'].add(usage.card_date)
+
+            if usage.instrument_range_on_card:
+                details['range_su_scheda_counter'][usage.instrument_range_on_card] += 1
+
+            if usage.tipologia_strumento_scheda:
+                details['tipologie_scheda_associate_counter'][usage.tipologia_strumento_scheda] += 1
+
+            # Tally congruency and error types
+            if usage.is_congruent:
+                details['usi_congrui'] += 1
+            elif usage.is_congruent is False:
+                details['usi_total_incongrui'] += 1
+
+            if usage.used_before_emission:
+                details['usi_prima_emissione'] += 1
+            elif usage.is_expired_at_use:
+                details['usi_scaduti_puri'] += 1
 
     def _prepare_data_for_treeview(self) -> List[Dict]:
+        """
+        Transforms the aggregated data from `cert_details_map` into a list of
+        dictionaries suitable for direct insertion into the results Treeview.
+        This method also makes data access defensive to prevent KeyErrors.
+        """
         tree_data = []
         for cert_id, details in self.cert_details_map.items():
             scad_rec = max(details['date_utilizzo_obj_set']).strftime('%d/%m/%Y') if details['date_utilizzo_obj_set'] else "N/D"
             range_p = details['range_su_scheda_counter'].most_common(1)[0][0] if details['range_su_scheda_counter'] else "N/D"
             tip_p = details['tipologie_scheda_associate_counter'].most_common(1)[0][0] if details['tipologie_scheda_associate_counter'] else "N/D"
+
+            # Use .get() with a default value (0) for all numeric fields
+            # to prevent crashes if the data structure is unexpectedly missing a key.
             tree_data.append({
-                "ID Certificato": cert_id, "Utilizzi": details['utilizzi'], "Tipologia Principale": tip_p,
-                "Congrui": details['usi_congrui'], "Non Congrui": details['usi_total_incongrui'],
-                "Prima Emiss.": details['usi_prima_emissione'], "Scaduti": details['usi_scaduti_puri'],
-                "Scadenza Recente": scad_rec, "Range Principale": range_p
+                "ID Certificato": cert_id,
+                "Utilizzi": details.get('utilizzi', 0),
+                "Tipologia Principale": tip_p,
+                "Congrui": details.get('usi_congrui', 0),
+                "Non Congrui": details.get('usi_total_incongrui', 0),
+                "Prima Emiss.": details.get('usi_prima_emissione', 0),
+                "Scaduti": details.get('usi_scaduti_puri', 0),
+                "Scadenza Recente": scad_rec,
+                "Range Principale": range_p
             })
-        return sorted(tree_data, key=lambda x: (-x["Prima Emiss."], -x["Non Congrui"], -x["Utilizzi"]))
+
+        # Sort the results to show the most problematic certificates first
+        return sorted(tree_data, key=lambda x: (-x.get("Prima Emiss.", 0), -x.get("Non Congrui", 0), -x.get("Utilizzi", 0)))
 
     def _on_tree_item_single_click(self, event):
         item_id = self.tree_cert.identify_row(event.y)
@@ -534,6 +577,82 @@ class App:
             messagebox.showinfo("Successo", "Configurazione salvata con successo. Le modifiche saranno applicate alla prossima analisi.", parent=self.root)
         else:
             messagebox.showerror("Errore", "Impossibile salvare la configurazione. Controllare i log per i dettagli.", parent=self.root)
+
+    def _populate_autofill_tab(self):
+        """Populates the 'Compilatore Automatico' tab with a button and instructions."""
+        for widget in self.autofill_tab.winfo_children():
+            widget.destroy()
+
+        action_frame = ttk.LabelFrame(self.autofill_tab, text="Azione", padding=10)
+        action_frame.pack(fill=tk.X, pady=10, padx=10)
+
+        autofill_button = ttk.Button(action_frame, text="Avvia Compilazione Automatica",
+                                     command=self._run_autofill, style="Accent.TButton")
+        autofill_button.pack(pady=10)
+
+        if not config.FILE_DATI_COMPILAZIONE_SCHEDE:
+            autofill_button.config(state=tk.DISABLED)
+            ttk.Label(action_frame,
+                      text="Funzione disabilitata: il 'File Dati Compilazione' non è specificato nella Configurazione.",
+                      foreground="orange").pack(pady=5)
+
+        info_text_frame = ttk.LabelFrame(self.autofill_tab, text="Informazioni", padding=10)
+        info_text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        info_text = (
+            "Questa funzione tenta di compilare automaticamente i campi anagrafici mancanti "
+            "(ODC, Data, PDL, Esecutore, etc.) nelle schede analizzate.\n\n"
+            "1. Cerca errori di compilazione anagrafica nelle schede analizzate.\n"
+            "2. Per ogni scheda con errori, cerca una corrispondenza nel file 'Dati Compilazione' "
+            "(specificato nella Configurazione) basandosi su PDL o ODC.\n"
+            "3. Se trova una corrispondenza, scrive i dati mancanti nel file della scheda.\n\n"
+            "ATTENZIONE:\n"
+            "- Verranno modificati i file .xlsx nella cartella analizzata.\n"
+            "- I file .xls verranno convertiti in .xlsx usando i file master specificati in configurazione. "
+            "Il file .xls originale verrà cancellato."
+        )
+
+        info_label = ttk.Label(info_text_frame, text=info_text, wraplength=600, justify=tk.LEFT)
+        info_label.pack(padx=10, pady=10)
+
+    def _run_autofill(self):
+        self._log_message("Avvio compilazione automatica schede...", "INFO")
+
+        if not config.FILE_DATI_COMPILAZIONE_SCHEDE or not os.path.exists(config.FILE_DATI_COMPILAZIONE_SCHEDE):
+            msg = f"File dati compilazione ({config.FILE_DATI_COMPILAZIONE_SCHEDE}) non trovato."
+            self._log_message(msg, "ERROR")
+            messagebox.showerror("Errore File Compilazione", f"{msg}\nControllare parametri.xlsm (B4).", parent=self.root)
+            return
+
+        try:
+            df_sorgente = pd.read_excel(config.FILE_DATI_COMPILAZIONE_SCHEDE, sheet_name=config.NOME_FOGLIO_DATI_COMPILAZIONE, engine='openpyxl', header=0)
+            self._log_message(f"Letti {len(df_sorgente)} righe dal file dati compilazione.", "INFO")
+        except Exception as e:
+            self._log_message(f"Errore lettura file dati compilazione: {e}", "ERROR")
+            messagebox.showerror("Errore Lettura File Sorgente", f"Impossibile leggere il file dati:\n{e}", parent=self.root)
+            return
+
+        schede_con_errori_comp = [res for res in self.analysis_results if any(e.key.startswith("COMP_") for e in res.human_errors)]
+        if not schede_con_errori_comp:
+            messagebox.showinfo("Nessuna Azione", "Nessuna scheda con errori di compilazione anagrafica trovata.", parent=self.root)
+            return
+
+        modifiche_conteggio = 0
+        for sheet_result in schede_con_errori_comp:
+            self._log_message(f"Processo scheda: {sheet_result.base_filename}", "DEBUG")
+            # Logica per trovare la riga corrispondente in df_sorgente...
+            # ... (logica di ricerca per PDL e ODC) ...
+
+            # Placeholder per la logica di scrittura
+            # if dati_da_scrivere:
+            #   if excel_io.write_cell(...):
+            #      modifiche_conteggio += 1
+
+        if modifiche_conteggio > 0:
+            messagebox.showinfo("Compilazione Completata", f"{modifiche_conteggio} schede sono state aggiornate.\nRianalizzare per vedere i cambiamenti.", parent=self.root)
+        else:
+            messagebox.showinfo("Compilazione Completata", "Nessuna scheda è stata modificata. Controllare il log per i dettagli.", parent=self.root)
+        self._log_message("Processo di compilazione automatica terminato.", "INFO")
 
     def _sort_treeview(self, tree, col, reverse):
         pass

@@ -74,21 +74,28 @@ def leggi_registro_strumenti() -> Optional[List[CalibrationStandard]]:
         return None
 
     try:
+        # The order of columns in usecols must match the order in names.
+        # We must sort the columns by index to ensure pandas reads them in the correct order.
+        cols_to_read = {
+            'modello_strumento_campione': config.REGISTRO_COL_IDX_MODELLO_STRUM_CAMPIONE,
+            'id_cert_campione': config.REGISTRO_COL_IDX_ID_CERT_CAMPIONE,
+            'range_campione': config.REGISTRO_COL_IDX_RANGE_CAMPIONE,
+            'scadenza_cert_campione': config.REGISTRO_COL_IDX_SCADENZA_CAMPIONE
+        }
+        sorted_cols = sorted(cols_to_read.items(), key=lambda item: item[1])
+        sorted_col_names = [item[0] for item in sorted_cols]
+        sorted_col_indices = [item[1] for item in sorted_cols]
+
         df_registro = pd.read_excel(
             config.FILE_REGISTRO_STRUMENTI,
             sheet_name=config.REGISTRO_FOGLIO_NOME,
             header=None,
             skiprows=config.REGISTRO_RIGA_INIZIO_DATI - 1,
-            usecols=[
-                config.REGISTRO_COL_IDX_MODELLO_STRUM_CAMPIONE,
-                config.REGISTRO_COL_IDX_ID_CERT_CAMPIONE,
-                config.REGISTRO_COL_IDX_RANGE_CAMPIONE,
-                config.REGISTRO_COL_IDX_SCADENZA_CAMPIONE
-            ],
+            usecols=sorted_col_indices,
             engine='openpyxl',
             dtype=str,
-            names=['modello_strumento_campione', 'id_cert_campione', 'range_campione', 'scadenza_cert_campione']
         )
+        df_registro.columns = sorted_col_names
 
         df_registro.dropna(subset=['id_cert_campione'], inplace=True)
         df_registro = df_registro[df_registro['id_cert_campione'].astype(str).str.strip() != ""]
@@ -117,6 +124,8 @@ def leggi_registro_strumenti() -> Optional[List[CalibrationStandard]]:
                 )
             )
         logger.info(f"Letti {len(strumenti_campione)} strumenti validi dal registro.")
+        all_registry_ids = [s.id_certificato for s in strumenti_campione]
+        logger.debug(f"Loaded {len(all_registry_ids)} certificate IDs from registry: {all_registry_ids}")
         return strumenti_campione
     except Exception as e:
         logger.error(f"Errore imprevisto durante lettura registro strumenti: {e}", exc_info=True)
