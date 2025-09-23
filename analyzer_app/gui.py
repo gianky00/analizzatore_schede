@@ -329,27 +329,39 @@ class App:
         errors_tree.bind("<<TreeviewSelect>>", partial(self._on_error_detail_select, sheet_result, errors_tree))
 
     def _on_error_detail_select(self, sheet_result, errors_tree, event):
-        for widget in self.correction_panel.winfo_children(): widget.destroy()
+        for widget in self.correction_panel.winfo_children():
+            widget.destroy()
+
         selected_item_id = errors_tree.focus()
-        if not selected_item_id: return
+        if not selected_item_id:
+            return
+
         selected_error = sheet_result.human_errors[int(selected_item_id)]
         is_xlsx = sheet_result.file_path.lower().endswith('.xlsx')
+
+        # Always show the "Apri Scheda" button
+        btn_open = ttk.Button(self.correction_panel, text="Apri Scheda",
+                              command=lambda: self._on_file_click(sheet_result.file_path, sheet_result.base_filename, open_file_direct=True))
+        btn_open.grid(row=2, column=0, sticky='w', pady=5)
+
         if is_xlsx and selected_error.cell:
+            # If the error is correctable, show the correction widgets and button
             ttk.Label(self.correction_panel, text="Cella da modificare:").grid(row=0, column=0, sticky='w')
             ttk.Label(self.correction_panel, text=selected_error.cell, font=('Segoe UI', 10, 'bold')).grid(row=0, column=1, sticky='w')
             ttk.Label(self.correction_panel, text="Nuovo Valore:").grid(row=1, column=0, sticky='w')
+
             entry = ttk.Entry(self.correction_panel)
-            if selected_error.suggestion: entry.insert(0, selected_error.suggestion)
+            if selected_error.suggestion:
+                entry.insert(0, selected_error.suggestion)
             entry.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
+
             btn_correct = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
                                      command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
             btn_correct.grid(row=2, column=1, sticky='e', pady=5)
         else:
-            msg = "La modifica automatica è supportata solo per file .xlsx." if not is_xlsx else "Nessuna azione automatica per questo errore."
-            ttk.Label(self.correction_panel, text=msg).pack(pady=5)
-        btn_open = ttk.Button(self.correction_panel, text="Apri Scheda",
-                              command=lambda: self._on_file_click(sheet_result.file_path, sheet_result.base_filename, open_file_direct=True))
-        btn_open.pack(pady=5, side=tk.LEFT)
+            # Otherwise, show an informational message
+            msg = "La modifica automatica è supportata solo per file .xlsx." if not is_xlsx else "Nessuna azione automatica disponibile per questo errore."
+            ttk.Label(self.correction_panel, text=msg).grid(row=0, column=0, columnspan=2, sticky='w')
 
     def _apply_correction(self, file_path, cell, value):
         if not cell:
