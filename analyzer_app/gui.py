@@ -512,15 +512,16 @@ class App:
             tags = self.tree_cert.item(item_id, 'tags')
             file_path_to_open = None
             for tag in tags:
-                # The file path is the tag that is a valid, existing file path
-                if isinstance(tag, str) and (tag.endswith('.xls') or tag.endswith('.xlsx')) and os.path.exists(tag):
+                # The file path is the tag that ends with a valid Excel extension.
+                # os.path.exists() is unreliable with UNC paths, so we use this heuristic.
+                if isinstance(tag, str) and (tag.lower().endswith('.xls') or tag.lower().endswith('.xlsx')):
                     file_path_to_open = tag
                     break
 
             if file_path_to_open:
                 self._on_file_click(file_path_to_open, os.path.basename(file_path_to_open), open_file_direct=True)
             else:
-                logger.warning(f"Nessun percorso file valido trovato nei tag per l'item {item_id}: {tags}")
+                logger.warning(f"Nessun tag con estensione .xls/.xlsx trovato per l'item {item_id}: {tags}")
         else:  # It's a parent item
             values = self.tree_cert.item(item_id, 'values')
             cert_id, range_val = values[0], values[8]
