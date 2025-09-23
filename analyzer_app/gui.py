@@ -32,7 +32,7 @@ def read_file_worker(q, file_path):
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"Analisi Schede Taratura - v4.0 Final")
+        self.root.title(f"Analisi Schede Taratura - v5.0 Final")
         self.root.geometry("1750x980")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -53,16 +53,13 @@ class App:
 
         self._setup_styles()
         self.create_widgets()
-        self.start_analysis()
 
     def _setup_styles(self):
         self.style = ttk.Style(self.root)
         try:
             theme = 'vista' if 'vista' in self.style.theme_names() else 'clam'
             self.style.theme_use(theme)
-        except tk.TclError:
-            logger.warning("Tema 'vista' o 'clam' non trovato.")
-
+        except tk.TclError: logger.warning("Tema 'vista' o 'clam' non trovato.")
         self.style.configure("Treeview.Heading", font=('Segoe UI', 10, 'bold'), relief="groove")
         self.style.configure("Treeview", rowheight=28, font=('Segoe UI', 9))
         self.style.configure("TNotebook.Tab", font=('Segoe UI', 10, 'bold'), padding=[12, 6])
@@ -78,16 +75,16 @@ class App:
 
         self.progress_tab = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.progress_tab, text=' Progresso Analisi ')
+        self.start_button = ttk.Button(self.progress_tab, text="Avvia Analisi", command=self.start_analysis, style="Accent.TButton")
+        self.start_button.pack(pady=10)
         log_frame = ttk.LabelFrame(self.progress_tab, text="Log di Analisi", padding=10)
         log_frame.pack(expand=True, fill=tk.BOTH)
-        log_v_scroll = ttk.Scrollbar(log_frame)
-        log_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        log_v_scroll = ttk.Scrollbar(log_frame); log_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.log_text = tk.Text(log_frame, wrap=tk.WORD, state=tk.DISABLED, yscrollcommand=log_v_scroll.set, font=("Consolas", 10))
-        self.log_text.pack(expand=True, fill=tk.BOTH)
-        log_v_scroll.config(command=self.log_text.yview)
+        self.log_text.pack(expand=True, fill=tk.BOTH); log_v_scroll.config(command=self.log_text.yview)
         self.progress_bar = ttk.Progressbar(self.progress_tab, orient='horizontal', mode='determinate')
         self.progress_bar.pack(fill=tk.X, pady=5)
-        self.progress_label = ttk.Label(self.progress_tab, text="In attesa di iniziare l'analisi...")
+        self.progress_label = ttk.Label(self.progress_tab, text="Pronto per iniziare l'analisi. Modificare la configurazione o premere 'Avvia Analisi'.")
         self.progress_label.pack(fill=tk.X)
 
         self.cruscotto_tab = ttk.Frame(self.notebook, padding=10)
@@ -100,7 +97,8 @@ class App:
         self.notebook.add(self.cert_details_tab, text=' Dettaglio Utilizzo Certificati ', state=tk.DISABLED)
         self.notebook.add(self.correction_tab, text=' Correzione Schede ', state=tk.DISABLED)
         self.notebook.add(self.suggerimenti_tab, text=' Suggerimenti Strumenti ', state=tk.DISABLED)
-        self.notebook.add(self.config_tab, text=' Configurazione ', state=tk.DISABLED)
+        self.notebook.add(self.config_tab, text=' Configurazione ')
+        self._populate_config_tab()
 
     def _log_message(self, message, level="INFO"):
         self.root.after(0, self.__log_message_thread_safe, message, level)
@@ -113,6 +111,7 @@ class App:
         logger.log(logging.getLevelName(level), message)
 
     def start_analysis(self):
+        self.start_button.config(state=tk.DISABLED)
         for i in self.notebook.tabs():
             if self.notebook.index(i) > 0: self.notebook.tab(i, state=tk.DISABLED)
         self.notebook.select(self.progress_tab)
@@ -125,6 +124,8 @@ class App:
 
     def _analysis_worker(self):
         try:
+            config.load_config()
+            self.analysis_queue.put(('log', "Configurazione ricaricata."))
             self.analysis_queue.put(('log', "Lettura registro strumenti..."))
             self.strumenti_campione = excel_io.leggi_registro_strumenti() or []
             self.analysis_queue.put(('log', f"Letti {len(self.strumenti_campione)} strumenti validi dal registro."))
@@ -143,8 +144,7 @@ class App:
                     self.analysis_queue.put(('log', f"Fase 1: Lettura dati da {filename} (con timeout di 30s)"))
                     q = multiprocessing.Queue()
                     p = multiprocessing.Process(target=read_file_worker, args=(q, file_path))
-                    p.start()
-                    p.join(30)
+                    p.start(); p.join(30)
                     if p.is_alive():
                         p.terminate(); p.join()
                         raise TimeoutError("La lettura del file ha superato i 30 secondi.")
@@ -179,10 +179,12 @@ class App:
                     self.progress_label['text'] = "Analisi completata. Elaborazione risultati..."
                     self._process_final_results()
                     self._populate_results_ui()
+                    self.start_button.config(state=tk.NORMAL)
                     return
                 elif msg_type == 'error':
                     self.progress_label['text'] = f"Errore durante l'analisi: {data}"
                     messagebox.showerror("Errore di Analisi", f"Si è verificato un errore: {data}")
+                    self.start_button.config(state=tk.NORMAL)
                     return
         except queue.Empty: pass
         finally:
@@ -309,7 +311,6 @@ class App:
         btn_correct = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
                                  command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
         btn_correct.grid(row=2, column=1, sticky='e', pady=5)
-
         btn_open = ttk.Button(self.correction_panel, text="Apri Scheda",
                               command=lambda: self._on_file_click(sheet_result.file_path, sheet_result.base_filename, open_file_direct=True))
         btn_open.grid(row=2, column=0, sticky='w', pady=5)
