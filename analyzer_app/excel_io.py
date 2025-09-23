@@ -117,6 +117,8 @@ def leggi_registro_strumenti() -> Optional[List[CalibrationStandard]]:
                 )
             )
         logger.info(f"Letti {len(strumenti_campione)} strumenti validi dal registro.")
+        all_registry_ids = [s.id_certificato for s in strumenti_campione]
+        logger.debug(f"Loaded {len(all_registry_ids)} certificate IDs from registry: {all_registry_ids}")
         return strumenti_campione
     except Exception as e:
         logger.error(f"Errore imprevisto durante lettura registro strumenti: {e}", exc_info=True)

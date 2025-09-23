@@ -156,6 +156,8 @@ def analyze_sheet_data(
         cert_id = str(cert_ids[i]).strip() if not is_cell_value_empty(cert_ids[i]) else None
         if not cert_id: continue
 
+        logger.debug(f"In sheet '{base_filename}', searching for cert ID: '{cert_id}'")
+
         exp_raw = cert_expiries[i]
         cert_exp_dt = parse_date_robust(exp_raw, base_filename)
         is_exp = bool(cert_exp_dt and card_date and cert_exp_dt < card_date)
