@@ -261,8 +261,15 @@ class App:
                 congr_str = "Congruo" if uso_info.is_congruent else "NON Congruo" if uso_info.is_congruent is False else "N/V"
                 child_vals[3] = f"{congr_str} ({uso_info.congruency_notes})"
                 child_tags = ['child_base']
-                if not uso_info.is_congruent or uso_info.used_before_emission or uso_info.is_expired_at_use: child_tags.append('child_error')
-                unique_iid = f"{uso_info.file_path}_{child_item_counter}"
+                if not uso_info.is_congruent or uso_info.used_before_emission or uso_info.is_expired_at_use:
+                    child_tags.append('child_error')
+
+                # Aggiungi il percorso del file come tag per un recupero affidabile
+                child_tags.append(uso_info.file_path)
+
+                # Usa un iid semplice e unico che non sia il percorso del file
+                unique_iid = f"child_{child_item_counter}"
+
                 self.tree_cert.insert(parent_item_id, "end", values=child_vals, tags=tuple(child_tags), iid=unique_iid)
                 child_item_counter += 1
         self.tree_cert.bind("<Double-1>", self._on_tree_item_double_click)
@@ -500,9 +507,21 @@ class App:
     def _on_tree_item_double_click(self, event):
         item_id = self.tree_cert.identify_row(event.y)
         if not item_id: return
-        if self.tree_cert.parent(item_id):
-            self._on_file_click(item_id, os.path.basename(item_id), open_file_direct=True)
-        else:
+
+        if self.tree_cert.parent(item_id):  # It's a child item
+            tags = self.tree_cert.item(item_id, 'tags')
+            file_path_to_open = None
+            for tag in tags:
+                # The file path is the tag that is a valid, existing file path
+                if isinstance(tag, str) and (tag.endswith('.xls') or tag.endswith('.xlsx')) and os.path.exists(tag):
+                    file_path_to_open = tag
+                    break
+
+            if file_path_to_open:
+                self._on_file_click(file_path_to_open, os.path.basename(file_path_to_open), open_file_direct=True)
+            else:
+                logger.warning(f"Nessun percorso file valido trovato nei tag per l'item {item_id}: {tags}")
+        else:  # It's a parent item
             values = self.tree_cert.item(item_id, 'values')
             cert_id, range_val = values[0], values[8]
             self.notebook.select(self.suggerimenti_tab)
