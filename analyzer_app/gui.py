@@ -306,9 +306,13 @@ class App:
         entry = ttk.Entry(self.correction_panel)
         if selected_error.suggestion: entry.insert(0, selected_error.suggestion)
         entry.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
-        btn = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
-                         command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
-        btn.grid(row=2, column=1, sticky='e', pady=5)
+        btn_correct = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
+                                 command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
+        btn_correct.grid(row=2, column=1, sticky='e', pady=5)
+
+        btn_open = ttk.Button(self.correction_panel, text="Apri Scheda",
+                              command=lambda: self._on_file_click(sheet_result.file_path, sheet_result.base_filename, open_file_direct=True))
+        btn_open.grid(row=2, column=0, sticky='w', pady=5)
 
     def _apply_correction(self, file_path, cell, value):
         if not cell:
