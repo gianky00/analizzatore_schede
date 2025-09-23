@@ -262,13 +262,27 @@ class App:
         for widget in self.correction_tab.winfo_children(): widget.destroy()
         pane = ttk.PanedWindow(self.correction_tab, orient=tk.HORIZONTAL)
         pane.pack(fill=tk.BOTH, expand=True)
-        files_frame = ttk.LabelFrame(pane, text="File con Errori di Compilazione", padding=10)
-        cols = ("File", "Errori")
-        self.files_tree_corr = ttk.Treeview(files_frame, columns=cols, show='headings')
-        self.files_tree_corr.heading("File", text="File"); self.files_tree_corr.heading("Errori", text="N. Errori")
-        self.files_tree_corr.column("File", width=300); self.files_tree_corr.column("Errori", width=60, anchor='center')
-        self.files_tree_corr.pack(fill=tk.BOTH, expand=True)
+
+        files_frame = ttk.Frame(pane)
         pane.add(files_frame, weight=1)
+
+        # XLSX Tree (Modifiable)
+        xlsx_frame = ttk.LabelFrame(files_frame, text="Correggibili Automaticamente (.xlsx)", padding=5)
+        xlsx_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
+        cols = ("File", "Errori")
+        self.xlsx_files_tree = ttk.Treeview(xlsx_frame, columns=cols, show='headings')
+        self.xlsx_files_tree.heading("File", text="File"); self.xlsx_files_tree.heading("Errori", text="N. Errori")
+        self.xlsx_files_tree.column("File", width=250); self.xlsx_files_tree.column("Errori", width=50, anchor='center')
+        self.xlsx_files_tree.pack(fill=tk.BOTH, expand=True)
+
+        # XLS Tree (Manual)
+        xls_frame = ttk.LabelFrame(files_frame, text="Da Aprire Manualmente (.xls)", padding=5)
+        xls_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+        self.xls_files_tree = ttk.Treeview(xls_frame, columns=cols, show='headings')
+        self.xls_files_tree.heading("File", text="File"); self.xls_files_tree.heading("Errori", text="N. Errori")
+        self.xls_files_tree.column("File", width=250); self.xls_files_tree.column("Errori", width=50, anchor='center')
+        self.xls_files_tree.pack(fill=tk.BOTH, expand=True)
+
         details_pane = ttk.Frame(pane, padding=10)
         pane.add(details_pane, weight=2)
         self.errors_frame = ttk.LabelFrame(details_pane, text="Dettaglio Errori", padding=10)
@@ -276,16 +290,25 @@ class App:
         self.correction_panel = ttk.LabelFrame(details_pane, text="Pannello di Correzione", padding=10)
         self.correction_panel.pack(fill=tk.X, pady=10)
         self.correction_panel.grid_columnconfigure(1, weight=1)
+
         files_with_errors = [res for res in self.analysis_results if res.is_valid and res.human_errors]
-        self.files_tree_corr.delete(*self.files_tree_corr.get_children())
+        self.xlsx_files_tree.delete(*self.xlsx_files_tree.get_children())
+        self.xls_files_tree.delete(*self.xls_files_tree.get_children())
         for res in files_with_errors:
-            self.files_tree_corr.insert("", "end", iid=res.file_path, values=(res.base_filename, len(res.human_errors)))
-        self.files_tree_corr.bind("<<TreeviewSelect>>", self._on_file_error_select)
+            if res.file_path.lower().endswith('.xlsx'):
+                self.xlsx_files_tree.insert("", "end", iid=res.file_path, values=(res.base_filename, len(res.human_errors)))
+            else:
+                self.xls_files_tree.insert("", "end", iid=res.file_path, values=(res.base_filename, len(res.human_errors)))
+
+        self.xlsx_files_tree.bind("<<TreeviewSelect>>", self._on_file_error_select)
+        self.xls_files_tree.bind("<<TreeviewSelect>>", self._on_file_error_select)
 
     def _on_file_error_select(self, event):
         for widget in self.errors_frame.winfo_children(): widget.destroy()
         for widget in self.correction_panel.winfo_children(): widget.destroy()
-        selected_item = self.files_tree_corr.focus()
+
+        tree = event.widget
+        selected_item = tree.focus()
         if not selected_item: return
         sheet_result = next((res for res in self.analysis_results if res.file_path == selected_item), None)
         if not sheet_result: return
@@ -302,18 +325,25 @@ class App:
         selected_item_id = errors_tree.focus()
         if not selected_item_id: return
         selected_error = sheet_result.human_errors[int(selected_item_id)]
-        ttk.Label(self.correction_panel, text="Cella da modificare:").grid(row=0, column=0, sticky='w')
-        ttk.Label(self.correction_panel, text=selected_error.cell or "N/A", font=('Segoe UI', 10, 'bold')).grid(row=0, column=1, sticky='w')
-        ttk.Label(self.correction_panel, text="Nuovo Valore:").grid(row=1, column=0, sticky='w')
-        entry = ttk.Entry(self.correction_panel)
-        if selected_error.suggestion: entry.insert(0, selected_error.suggestion)
-        entry.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
-        btn_correct = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
-                                 command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
-        btn_correct.grid(row=2, column=1, sticky='e', pady=5)
+
+        is_xlsx = sheet_result.file_path.lower().endswith('.xlsx')
+
+        if is_xlsx:
+            ttk.Label(self.correction_panel, text="Cella da modificare:").grid(row=0, column=0, sticky='w')
+            ttk.Label(self.correction_panel, text=selected_error.cell or "N/A", font=('Segoe UI', 10, 'bold')).grid(row=0, column=1, sticky='w')
+            ttk.Label(self.correction_panel, text="Nuovo Valore:").grid(row=1, column=0, sticky='w')
+            entry = ttk.Entry(self.correction_panel)
+            if selected_error.suggestion: entry.insert(0, selected_error.suggestion)
+            entry.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
+            btn_correct = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
+                                     command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
+            btn_correct.grid(row=2, column=1, sticky='e', pady=5)
+        else:
+            ttk.Label(self.correction_panel, text="La modifica automatica è supportata solo per file .xlsx.").pack(pady=5)
+
         btn_open = ttk.Button(self.correction_panel, text="Apri Scheda",
                               command=lambda: self._on_file_click(sheet_result.file_path, sheet_result.base_filename, open_file_direct=True))
-        btn_open.grid(row=2, column=0, sticky='w', pady=5)
+        btn_open.pack(pady=5)
 
     def _apply_correction(self, file_path, cell, value):
         if not cell:
