@@ -10,14 +10,23 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime
 from typing import List, Dict
+import multiprocessing
 
 from . import config
 from . import excel_io
 from . import analysis
 from . import reporting
-from .data_models import CertificateUsage
+from .data_models import InstrumentSheet, CertificateUsage
 
 logger = logging.getLogger(__name__)
+
+def read_file_worker(q, file_path):
+    """Helper function to run file reading in a separate process to allow for timeouts."""
+    try:
+        raw_data = excel_io.read_instrument_sheet_raw_data(file_path)
+        q.put(('success', raw_data))
+    except Exception as e:
+        q.put(('error', e))
 
 class App:
     def __init__(self, root):
@@ -66,7 +75,6 @@ class App:
         self.notebook = ttk.Notebook(main_frame, style="TNotebook")
         self.notebook.pack(expand=True, fill='both', pady=(0, 10))
 
-        # Progress Tab
         self.progress_tab = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.progress_tab, text=' Progresso Analisi ')
         log_frame = ttk.LabelFrame(self.progress_tab, text="Log di Analisi", padding=10)
@@ -81,7 +89,6 @@ class App:
         self.progress_label = ttk.Label(self.progress_tab, text="In attesa di iniziare l'analisi...")
         self.progress_label.pack(fill=tk.X)
 
-        # Result Tabs (created empty)
         self.cruscotto_tab = ttk.Frame(self.notebook, padding=10)
         self.cert_details_tab = ttk.Frame(self.notebook, padding=10)
         self.suggerimenti_tab = ttk.Frame(self.notebook, padding=10)
@@ -125,13 +132,26 @@ class App:
             results = []
             for i, filename in enumerate(candidate_files):
                 file_path = os.path.join(folder_path, filename)
-
                 self.analysis_queue.put(('log', f"--- INIZIO elaborazione file {i+1}/{self.candidate_files_count}: {filename} ---"))
-
                 self.analysis_queue.put(('progress', (i + 1, f"Analisi di: {filename}")))
+
                 try:
-                    self.analysis_queue.put(('log', f"Fase 1: Lettura dati da {filename}"))
-                    raw_data = excel_io.read_instrument_sheet_raw_data(file_path)
+                    self.analysis_queue.put(('log', f"Fase 1: Lettura dati da {filename} (con timeout di 30s)"))
+
+                    q = multiprocessing.Queue()
+                    p = multiprocessing.Process(target=read_file_worker, args=(q, file_path))
+                    p.start()
+                    p.join(30)
+
+                    if p.is_alive():
+                        p.terminate()
+                        p.join()
+                        raise TimeoutError("La lettura del file ha superato i 30 secondi.")
+
+                    status, result = q.get()
+                    if status == 'error':
+                        raise result
+                    raw_data = result
 
                     self.analysis_queue.put(('log', f"Fase 2: Analisi logica per {filename}"))
                     sheet_result = analysis.analyze_sheet_data(raw_data, self.strumenti_campione)
@@ -151,23 +171,24 @@ class App:
 
     def _check_analysis_queue(self):
         try:
-            msg_type, data = self.analysis_queue.get_nowait()
-            if msg_type == 'log': self._log_message(data)
-            elif msg_type == 'total_files': self.progress_bar['maximum'] = data
-            elif msg_type == 'progress':
-                count, message = data
-                self.progress_bar['value'] = count
-                self.progress_label['text'] = message
-            elif msg_type == 'done':
-                self.analysis_results = data
-                self.progress_label['text'] = "Analisi completata. Elaborazione risultati..."
-                self._process_final_results()
-                self._populate_results_ui()
-                return
-            elif msg_type == 'error':
-                self.progress_label['text'] = f"Errore durante l'analisi: {data}"
-                messagebox.showerror("Errore di Analisi", f"Si è verificato un errore: {data}")
-                return
+            while not self.analysis_queue.empty():
+                msg_type, data = self.analysis_queue.get_nowait()
+                if msg_type == 'log': self._log_message(data)
+                elif msg_type == 'total_files': self.progress_bar['maximum'] = data
+                elif msg_type == 'progress':
+                    count, message = data
+                    self.progress_bar['value'] = count
+                    self.progress_label['text'] = message
+                elif msg_type == 'done':
+                    self.analysis_results = data
+                    self.progress_label['text'] = "Analisi completata. Elaborazione risultati..."
+                    self._process_final_results()
+                    self._populate_results_ui()
+                    return
+                elif msg_type == 'error':
+                    self.progress_label['text'] = f"Errore durante l'analisi: {data}"
+                    messagebox.showerror("Errore di Analisi", f"Si è verificato un errore: {data}")
+                    return
         except queue.Empty:
             pass
         finally:
@@ -220,9 +241,7 @@ class App:
             self.tree_cert.heading(col_name, text=col_name, anchor=tk.W)
             self.tree_cert.column(col_name, width=col_widths.get(col_name, 120), minwidth=60, anchor=tk.W)
 
-        # Configure tags for styling
         self.tree_cert.tag_configure('child_base', font=tkFont.Font(family='Consolas', size=8), background='#FAFAFA')
-        # ... other tags ...
 
         data_for_tree = self._prepare_data_for_treeview()
         for i, row_data in enumerate(data_for_tree):
@@ -264,7 +283,7 @@ class App:
             if usage.used_before_emission: details['usi_prima_emissione'] += 1
             elif usage.is_expired_at_use: details['usi_scaduti_puri'] += 1
 
-    def _prepare_data_for_treeview(self) -> List[dict]:
+    def _prepare_data_for_treeview(self) -> List[Dict]:
         tree_data = []
         for cert_id, details in self.cert_details_map.items():
             scad_rec = max(details['date_utilizzo_obj_set']).strftime('%d/%m/%Y') if details['date_utilizzo_obj_set'] else "N/D"
@@ -281,7 +300,6 @@ class App:
     def _on_tree_item_interaction(self, event):
         item_id = self.tree_cert.identify_row(event.y)
         if not item_id: return
-        # Simple version: just log the item for now
         logger.info(f"Interacted with tree item: {self.tree_cert.item(item_id, 'values')}")
 
     def _search_suggestions(self):
