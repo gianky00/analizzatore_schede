@@ -168,23 +168,23 @@ IDX_DIG_SUPERVISORE_ISAB = excel_coord_to_indices(SCHEDA_DIG_CELL_SUPERVISORE_IS
 IDX_DIG_CONTRATTO_COEMI = excel_coord_to_indices(SCHEDA_DIG_CELL_CONTRATTO_COEMI)
 
 # --- Funzione di Caricamento Configurazione ---
+# --- Costanti per il file di configurazione ---
+try:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    SCRIPT_DIR = os.getcwd()
+
+NOME_FILE_PARAMETRI = "parametri.xlsm"
+PATH_FILE_PARAMETRI = os.path.normpath(os.path.join(SCRIPT_DIR, '..', NOME_FILE_PARAMETRI))
+NOME_FOGLIO_PARAMETRI = "parametri"
+
 def load_config():
     """
     Legge il file parametri.xlsm e popola le variabili di configurazione globali.
     Solleva FileNotFoundError, NotADirectoryError, o ValueError in caso di problemi critici.
     """
     global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
-    global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX, SCRIPT_DIR
-
-    try:
-        SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    except NameError:
-        SCRIPT_DIR = os.getcwd()
-
-    NOME_FILE_PARAMETRI = "parametri.xlsm"
-    PATH_FILE_PARAMETRI = os.path.join(SCRIPT_DIR, '..', NOME_FILE_PARAMETRI) # Assumendo che sia nella root
-    PATH_FILE_PARAMETRI = os.path.normpath(PATH_FILE_PARAMETRI)
-    NOME_FOGLIO_PARAMETRI = "parametri"
+    global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
 
     print(f"INFO: Tentativo di lettura percorsi da: {PATH_FILE_PARAMETRI}")
 

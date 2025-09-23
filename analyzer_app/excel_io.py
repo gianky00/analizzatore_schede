@@ -11,6 +11,7 @@ from openpyxl import load_workbook
 
 from . import config
 from .data_models import CalibrationStandard
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -205,3 +206,55 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             wb.close()
 
     return raw_data
+
+
+def save_configuration(new_config: Dict[str, str]) -> bool:
+    """
+    Salva i nuovi percorsi di configurazione nel file parametri.xlsm.
+    Restituisce True in caso di successo, False altrimenti.
+    """
+    try:
+        wb = load_workbook(config.PATH_FILE_PARAMETRI)
+        ws = wb[config.NOME_FOGLIO_PARAMETRI]
+
+        cell_map = {
+            'FILE_REGISTRO_STRUMENTI': 'B2',
+            'FOLDER_PATH_DEFAULT': 'B3',
+            'FILE_DATI_COMPILAZIONE_SCHEDE': 'B4',
+            'FILE_MASTER_DIGITALE_XLSX': 'B5',
+            'FILE_MASTER_ANALOGICO_XLSX': 'B6',
+        }
+
+        for key, cell in cell_map.items():
+            if key in new_config:
+                ws[cell] = new_config[key]
+
+        wb.save(config.PATH_FILE_PARAMETRI)
+        logger.info(f"Configurazione salvata con successo in {config.PATH_FILE_PARAMETRI}")
+        return True
+    except Exception as e:
+        logger.error(f"Errore durante il salvataggio della configurazione: {e}", exc_info=True)
+        return False
+
+
+def write_cell(file_path: str, cell_address: str, value) -> bool:
+    """
+    Scrive un valore in una cella specifica di un file .xlsx.
+    ATTENZIONE: Non supporta la scrittura di file .xls per preservare la formattazione.
+    """
+    if not file_path.lower().endswith('.xlsx'):
+        logger.error(f"La scrittura è supportata solo per i file .xlsx. Impossibile modificare {os.path.basename(file_path)}")
+        return False
+
+    try:
+        wb = load_workbook(file_path)
+        ws = wb.active  # Assumiamo di lavorare sempre sul foglio attivo
+
+        ws[cell_address] = value
+
+        wb.save(file_path)
+        logger.info(f"Cella {cell_address} in {os.path.basename(file_path)} aggiornata con valore '{value}'.")
+        return True
+    except Exception as e:
+        logger.error(f"Impossibile scrivere nel file {file_path}. Errore: {e}", exc_info=True)
+        return False

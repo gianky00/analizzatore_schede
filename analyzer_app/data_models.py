@@ -43,6 +43,14 @@ class CompilationData:
     odc_val_scheda: Optional[str] = None
 
 @dataclass
+class SheetError:
+    """Rappresenta un singolo errore di compilazione trovato in una scheda."""
+    key: str
+    description: str
+    cell: Optional[str] = None
+    suggestion: Optional[str] = None
+
+@dataclass
 class InstrumentSheet:
     """Rappresenta il risultato completo dell'analisi di un file di scheda."""
     file_path: str
@@ -54,5 +62,5 @@ class InstrumentSheet:
     tipologia_strumento: Optional[str] = None
     modello_l9: Optional[str] = None
     certificate_usages: List[CertificateUsage] = field(default_factory=list)
-    human_error_keys: Set[str] = field(default_factory=set)
+    human_errors: List[SheetError] = field(default_factory=list)
     compilation_data: Optional[CompilationData] = None
