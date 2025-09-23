@@ -32,7 +32,7 @@ def read_file_worker(q, file_path):
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"Analisi Schede Taratura - v5.0 Final")
+        self.root.title(f"Analisi Schede Taratura - v6.0 Optimized Re-analysis")
         self.root.geometry("1750x980")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -154,7 +154,7 @@ class App:
                     self.analysis_queue.put(('log', f"Fase 2: Analisi logica per {filename}"))
                     sheet_result = analysis.analyze_sheet_data(raw_data, self.strumenti_campione)
                     results.append(sheet_result)
-                    self.analysis_queue.put(('log', f"--- FINE elaborazione file: {filename}. Risultato: {sheet_result.status}"))
+                    self.analysis_queue.put(('log', f"--- FINE elaborazione file: {sheet_result.status}"))
                 except Exception as e:
                     logger.error(f"Errore durante l'analisi del file {filename}: {e}", exc_info=True)
                     results.append(InstrumentSheet(file_path=file_path, base_filename=filename, status=f"Errore: {e}", is_valid=False))
@@ -188,8 +188,7 @@ class App:
                     return
         except queue.Empty: pass
         finally:
-            if self.analysis_thread.is_alive():
-                self.root.after(100, self._check_analysis_queue)
+            if self.analysis_thread.is_alive(): self.root.after(100, self._check_analysis_queue)
 
     def _process_final_results(self):
         self.validated_file_count = sum(1 for res in self.analysis_results if res.is_valid)
@@ -238,6 +237,7 @@ class App:
         self.tree_cert.tag_configure('child_error', foreground='red')
         data_for_tree = self._prepare_data_for_treeview()
         child_item_counter = 0
+        self.tree_cert.delete(*self.tree_cert.get_children())
         for row_data in data_for_tree:
             tags = []
             if row_data["Non Congrui"] > 0 or row_data["Prima Emiss."] > 0: tags.append('parent_has_issues')
@@ -323,10 +323,36 @@ class App:
             messagebox.showwarning("Funzionalità Limitata", "La correzione automatica è supportata solo per i file .xlsx.", parent=self.root)
             return
         if excel_io.write_cell(file_path, cell, value):
-            messagebox.showinfo("Successo", "Correzione applicata. Rianalisi completa in corso...", parent=self.root)
-            self.start_analysis()
+            messagebox.showinfo("Successo", "Correzione applicata. Rianalisi del file in corso...", parent=self.root)
+            self._reanalyze_single_file(file_path)
         else:
             messagebox.showerror("Errore", "Impossibile applicare la correzione. Controllare i log.", parent=self.root)
+
+    def _reanalyze_single_file(self, file_path):
+        self.progress_label['text'] = f"Rianalisi di {os.path.basename(file_path)}..."
+        self.root.update_idletasks()
+        try:
+            raw_data = excel_io.read_instrument_sheet_raw_data(file_path)
+            new_result = analysis.analyze_sheet_data(raw_data, self.strumenti_campione)
+            # Find and replace the old result
+            index_to_replace = -1
+            for i, res in enumerate(self.analysis_results):
+                if res.file_path == file_path:
+                    index_to_replace = i
+                    break
+            if index_to_replace != -1:
+                self.analysis_results[index_to_replace] = new_result
+            else: # Should not happen if called from correction tab
+                self.analysis_results.append(new_result)
+        except Exception as e:
+            logger.error(f"Errore durante la rianalisi del file {os.path.basename(file_path)}: {e}")
+            messagebox.showerror("Errore Rianalisi", f"Impossibile rianalizzare il file: {e}", parent=self.root)
+
+        self._process_final_results()
+        self._populate_results_ui()
+        self.progress_label['text'] = "Rianalisi completata."
+        messagebox.showinfo("Completato", "Rianalisi completata. La vista è stata aggiornata.", parent=self.root)
+
 
     def _populate_suggerimenti_tab(self):
         for widget in self.suggerimenti_tab.winfo_children(): widget.destroy()
@@ -356,7 +382,7 @@ class App:
             entry = ttk.Entry(parent, width=100)
             entry.grid(row=row_index, column=1, sticky=tk.EW, padx=5)
             current_value = getattr(config, config_key, "") or ""
-            entry.insert(0, current_value)
+            if current_value: entry.insert(0, current_value)
             self.config_entries[config_key] = entry
             browse_cmd = partial(self._browse_folder, entry) if is_folder else partial(self._browse_file, entry)
             ttk.Button(parent, text="Sfoglia...", command=browse_cmd).grid(row=row_index, column=2, padx=5)
@@ -397,7 +423,7 @@ class App:
                 "Prima Emiss.": details['usi_prima_emissione'], "Scaduti": details['usi_scaduti_puri'],
                 "Scadenza Recente": scad_rec, "Range Principale": range_p
             })
-        return sorted(tree_data, key=lambda x: -x["Utilizzi"])
+        return sorted(tree_data, key=lambda x: (-x["Prima Emiss."], -x["Non Congrui"], -x["Utilizzi"]))
 
     def _on_tree_item_single_click(self, event):
         item_id = self.tree_cert.identify_row(event.y)
@@ -406,7 +432,8 @@ class App:
                 self.tree_cert.item(item_id, open=not self.tree_cert.item(item_id, 'open'))
                 self.last_clicked_item_id_for_toggle[0] = None
             else:
-                if self.last_clicked_item_id_for_toggle[0]: self.tree_cert.item(self.last_clicked_item_id_for_toggle[0], open=False)
+                if self.last_clicked_item_id_for_toggle[0] and self.tree_cert.exists(self.last_clicked_item_id_for_toggle[0]):
+                    self.tree_cert.item(self.last_clicked_item_id_for_toggle[0], open=False)
                 self.tree_cert.item(item_id, open=True)
                 self.last_clicked_item_id_for_toggle[0] = item_id
 
@@ -441,7 +468,8 @@ class App:
             for res in results:
                 if res.id_certificato == cert_id_target: continue
                 count += 1
-                self.sugg_results_text.insert(tk.END, f"ID: {res.id_certificato}, Modello: {res.modello_strumento}, Range: {res.range}, Scadenza: {res.scadenza.strftime('%d/%m/%Y')}\n")
+                scad_str = res.scadenza.strftime('%d/%m/%Y') if res.scadenza else 'N/D'
+                self.sugg_results_text.insert(tk.END, f"ID: {res.id_certificato}, Modello: {res.modello_strumento}, Range: {res.range}, Scadenza: {scad_str}\n")
             if count == 0: self.sugg_results_text.insert(tk.END, "Nessuna alternativa valida trovata (escludendo il certificato di partenza).")
         self.sugg_results_text.config(state=tk.DISABLED)
 
@@ -486,7 +514,7 @@ class App:
     def _save_config(self):
         new_config_data = {key: entry.get() for key, entry in self.config_entries.items()}
         if excel_io.save_configuration(new_config_data):
-            messagebox.showinfo("Successo", "Configurazione salvata con successo.\nSi prega di riavviare l'applicazione per applicare tutte le modifiche.", parent=self.root)
+            messagebox.showinfo("Successo", "Configurazione salvata con successo. Le modifiche saranno applicate alla prossima analisi.", parent=self.root)
         else:
             messagebox.showerror("Errore", "Impossibile salvare la configurazione. Controllare i log per i dettagli.", parent=self.root)
 
