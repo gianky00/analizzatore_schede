@@ -99,7 +99,39 @@ def analyze_sheet_data(
             if modello_l9_scheda_normalizzato == "SKIN POINT":
                 add_error(config.KEY_L9_SKINPOINT_INCOMPLETO, cell=config.SCHEDA_ANA_CELL_MODELLO_STRUM)
 
-    # Logica di validazione completa
+    # --- Inizio Logica di Validazione ---
+
+    # 1. Validazione campi di compilazione (ODC, Data, PDL, etc.)
+    compilation_cells = {
+        'analogico': {
+            'ODC': (config.KEY_COMP_ANA_ODC_MANCANTE, config.SCHEDA_ANA_CELL_ODC),
+            'DATA': (config.KEY_COMP_ANA_DATA_COMP_MANCANTE, config.SCHEDA_ANA_CELL_DATA_COMPILAZIONE),
+            'PDL': (config.KEY_COMP_ANA_PDL_MANCANTE, config.SCHEDA_ANA_CELL_PDL),
+            'ESECUTORE': (config.KEY_COMP_ANA_ESECUTORE_MANCANTE, config.SCHEDA_ANA_CELL_ESECUTORE),
+            'SUPERVISORE': (config.KEY_COMP_ANA_SUPERVISORE_MANCANTE, config.SCHEDA_ANA_CELL_SUPERVISORE_ISAB),
+            'CONTRATTO': (config.KEY_COMP_ANA_CONTRATTO_MANCANTE, config.SCHEDA_ANA_CELL_CONTRATTO_COEMI)
+        },
+        'digitale': {
+            'ODC': (config.KEY_COMP_DIG_ODC_MANCANTE, config.SCHEDA_DIG_CELL_ODC),
+            'DATA': (config.KEY_COMP_DIG_DATA_COMP_MANCANTE, config.SCHEDA_DIG_CELL_DATA_COMPILAZIONE),
+            'PDL': (config.KEY_COMP_DIG_PDL_MANCANTE, config.SCHEDA_DIG_CELL_PDL),
+            'ESECUTORE': (config.KEY_COMP_DIG_ESECUTORE_MANCANTE, config.SCHEDA_DIG_CELL_ESECUTORE),
+            'SUPERVISORE': (config.KEY_COMP_DIG_SUPERVISORE_MANCANTE, config.SCHEDA_DIG_CELL_SUPERVISORE_ISAB),
+            'CONTRATTO': (config.KEY_COMP_DIG_CONTRATTO_MANCANTE, config.SCHEDA_DIG_CELL_CONTRATTO_COEMI)
+        }
+    }
+    if file_type in compilation_cells:
+        for field, (key, cell) in compilation_cells[file_type].items():
+            raw_value = raw_data.get(field.lower())
+            if is_cell_value_empty(raw_value):
+                add_error(key, cell)
+            elif field == 'CONTRATTO':
+                contratto_val = str(raw_value).strip()
+                if not (contratto_val == config.VALORE_ATTESO_CONTRATTO_COEMI or contratto_val == config.VALORE_ATTESO_CONTRATTO_COEMI_VARIANTE_NUMERICA):
+                    key_diverso = config.KEY_COMP_ANA_CONTRATTO_DIVERSO if file_type == 'analogico' else config.KEY_COMP_DIG_CONTRATTO_DIVERSO
+                    add_error(key_diverso, cell, suggestion=config.VALORE_ATTESO_CONTRATTO_COEMI)
+
+    # 2. Validazione Range/UM
     if tipologia_strumento_scheda != "N/D":
         if file_type == "analogico":
             range_ing_norm = normalize_range_string(raw_data.get('range_ing'))
@@ -108,6 +140,7 @@ def analyze_sheet_data(
             um_usc_norm = normalize_um(raw_data.get('um_usc'))
             range_dcs_norm = normalize_range_string(raw_data.get('range_dcs'))
             um_dcs_norm = normalize_um(raw_data.get('um_dcs'))
+
             if tipologia_strumento_scheda == "TEMPERATURA":
                 if modello_l9_scheda_normalizzato == "CONVERTITORE":
                     if um_ing_norm != um_dcs_norm: add_error(config.KEY_ERR_ANA_TEMP_CONV_C9F9_UM_DIVERSE)
@@ -117,6 +150,7 @@ def analyze_sheet_data(
                 elif not modello_l9_scheda_normalizzato.startswith("L9 VUOTO"):
                     if not (um_ing_norm == um_dcs_norm and um_dcs_norm == um_usc_norm): add_error(config.KEY_ERR_ANA_TEMP_NOCONV_UM_NON_COINCIDENTI)
                     if not (range_ing_norm == range_dcs_norm and range_dcs_norm == range_usc_norm): add_error(config.KEY_ERR_ANA_TEMP_NOCONV_RANGE_NON_COINCIDENTI)
+
             elif tipologia_strumento_scheda == "LIVELLO":
                 if modello_l9_scheda_normalizzato == "DP":
                     if not is_um_pressione_valida(um_ing_norm): add_error(config.KEY_ERR_ANA_LIVELLO_DP_C9_UM_NON_PRESSIONE)
@@ -124,23 +158,40 @@ def analyze_sheet_data(
                     if um_dcs_norm != config.UM_PERCENTO_NORMALIZZATA: add_error(config.KEY_ERR_ANA_LIVELLO_DP_F9_UM_NON_PERCENTO)
                     if range_usc_norm != config.RANGE_4_20_NORMALIZZATO: add_error(config.KEY_ERR_ANA_LIVELLO_DP_D12_RANGE_NON_4_20)
                     if um_usc_norm != config.UM_MA_NORMALIZZATA: add_error(config.KEY_ERR_ANA_LIVELLO_DP_F12_UM_NON_MA)
-                elif "TORSIONALE" in modello_l9_scheda_normalizzato:
-                    # Logica per Torsionale
-                    pass
+                elif "BARRA DI TORSIONE" in modello_l9_scheda_normalizzato or ("TORSIONALE" in modello_l9_scheda_normalizzato and "PNEUMATICO" not in modello_l9_scheda_normalizzato and "LOCALE" not in modello_l9_scheda_normalizzato):
+                    if not (um_ing_norm == config.UM_MMH2O_NORMALIZZATA or um_ing_norm == config.UM_MM_NORMALIZZATA): add_error(config.KEY_ERR_ANA_LIVELLO_TORS_C9_UM_INVALIDA)
+                    if range_dcs_norm != config.RANGE_0_100_NORMALIZZATO: add_error(config.KEY_ERR_ANA_LIVELLO_TORS_D9_RANGE_NON_0_100)
+                    if um_dcs_norm != config.UM_PERCENTO_NORMALIZZATA: add_error(config.KEY_ERR_ANA_LIVELLO_TORS_F9_UM_NON_PERCENTO)
+                    if range_usc_norm != config.RANGE_4_20_NORMALIZZATO: add_error(config.KEY_ERR_ANA_LIVELLO_TORS_ELETTR_D12_RANGE_NON_4_20)
+                    if um_usc_norm != config.UM_MA_NORMALIZZATA: add_error(config.KEY_ERR_ANA_LIVELLO_TORS_ELETTR_F12_UM_NON_MA)
+                elif "TORSIONALE LOCALE" in modello_l9_scheda_normalizzato:
+                     if not (um_usc_norm == config.UM_PSI_NORMALIZZATA or is_cell_value_empty(raw_data.get('um_usc'))): add_error(config.KEY_ERR_ANA_LIVELLO_TORS_LOCALE_F12_UM_NON_VUOTA)
+                     if um_usc_norm != config.UM_PSI_NORMALIZZATA and not is_cell_value_empty(raw_data.get('range_usc')): add_error(config.KEY_ERR_ANA_LIVELLO_TORS_LOCALE_D12_RANGE_NON_VUOTO)
+                elif modello_l9_scheda_normalizzato in ["RADAR", "ULTRASUONI", "ONDA GUIDATA"]:
+                    if range_dcs_norm != config.RANGE_0_100_NORMALIZZATO: add_error(config.KEY_ERR_ANA_LIVELLO_RADARULTR_D9_RANGE_NON_0_100)
+                    if um_dcs_norm != config.UM_PERCENTO_NORMALIZZATA: add_error(config.KEY_ERR_ANA_LIVELLO_RADARULTR_F9_UM_NON_PERCENTO)
+                    if range_usc_norm != config.RANGE_4_20_NORMALIZZATO: add_error(config.KEY_ERR_ANA_LIVELLO_RADARULTR_D12_RANGE_NON_4_20)
+                    if um_usc_norm != config.UM_MA_NORMALIZZATA: add_error(config.KEY_ERR_ANA_LIVELLO_RADARULTR_F12_UM_NON_MA)
+
             elif tipologia_strumento_scheda == "PRESSIONE":
-                if um_ing_norm != um_dcs_norm: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_C9F9_UM_DIVERSE)
-                if um_usc_norm != config.UM_MA_NORMALIZZATA: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_F12_UM_NON_MA)
-                if range_ing_norm != range_dcs_norm: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_A9D9_RANGE_DIVERSI)
-                if range_usc_norm != config.RANGE_4_20_NORMALIZZATO: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_D12_RANGE_NON_4_20)
+                if modello_l9_scheda_normalizzato in ["DP", "TX", "TX PRESSIONE", "TX DI PRESSIONE", "CAPILLARE"]:
+                    if um_ing_norm != um_dcs_norm: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_C9F9_UM_DIVERSE)
+                    if um_usc_norm != config.UM_MA_NORMALIZZATA: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_F12_UM_NON_MA)
+                    if range_ing_norm != range_dcs_norm: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_A9D9_RANGE_DIVERSI)
+                    if range_usc_norm != config.RANGE_4_20_NORMALIZZATO: add_error(config.KEY_ERR_ANA_PRESS_DP_TX_D12_RANGE_NON_4_20)
+
             elif tipologia_strumento_scheda == "PORTATA":
-                if range_usc_norm != config.RANGE_4_20_NORMALIZZATO: add_error(config.KEY_ERR_ANA_PORTATA_DP_D12_RANGE_NON_4_20)
-                if um_usc_norm != config.UM_MA_NORMALIZZATA: add_error(config.KEY_ERR_ANA_PORTATA_DP_F12_UM_NON_MA)
+                if modello_l9_scheda_normalizzato == "DP" or "CAPILLARE" in modello_l9_scheda_normalizzato:
+                    if range_usc_norm != config.RANGE_4_20_NORMALIZZATO: add_error(config.KEY_ERR_ANA_PORTATA_DP_D12_RANGE_NON_4_20)
+                    if um_usc_norm != config.UM_MA_NORMALIZZATA: add_error(config.KEY_ERR_ANA_PORTATA_DP_F12_UM_NON_MA)
 
         elif file_type == "digitale":
-            range_um_proc_raw = raw_data.get('range_um_processo')
+            range_um_proc_raw = raw_data.get('range_um_processo', "")
             um_proc_norm = normalize_um(range_um_proc_raw)
+            full_string_as_um_norm = normalize_um(range_um_proc_raw)
+
             if tipologia_strumento_scheda == "PRESSIONE":
-                if not is_um_pressione_valida(um_proc_norm):
+                if not (is_um_pressione_valida(um_proc_norm) or is_um_pressione_valida(full_string_as_um_norm)):
                     add_error(config.KEY_ERR_DIG_PRESS_D22_UM_NON_PRESSIONE, config.SCHEDA_DIG_CELL_RANGE_UM_PROCESSO)
             elif tipologia_strumento_scheda == "LIVELLO":
                 if config.UM_PERCENTO_NORMALIZZATA not in um_proc_norm:
@@ -177,37 +228,61 @@ def analyze_sheet_data(
                 used_before_em = True; is_congr = False
                 congr_notes = f"Usato prima dell'emissione (Scheda:{card_date:%d/%m/%Y}, Emiss:{dt_em_camp:%d/%m/%Y})"
             else:
-                # Logica di congruità completa
-                if tipologia_strumento_scheda in config.REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE:
+                sott_l9_eff = "N/A"
+                if file_type == 'analogico' and not modello_l9_scheda_normalizzato.startswith(("L9 VUOTO", "Errore")):
+                    if modello_l9_scheda_normalizzato in config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA:
+                        poss_l9_val = config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA[modello_l9_scheda_normalizzato]
+                        poss_l9_list = [poss_l9_val] if isinstance(poss_l9_val, str) else poss_l9_val
+                        for cand_l9 in poss_l9_list:
+                            if tipologia_strumento_scheda in cand_l9 or cand_l9 == tipologia_strumento_scheda:
+                                sott_l9_eff = cand_l9
+                                break
+                    elif modello_l9_scheda_normalizzato: # Match parziale se non esatto
+                        for l9_key_map in sorted(config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA.keys(), key=len, reverse=True):
+                            if l9_key_map in modello_l9_scheda_normalizzato:
+                                poss_l9_cand_val = config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA[l9_key_map]
+                                poss_l9_cand_list = [poss_l9_cand_val] if isinstance(poss_l9_cand_val, str) else poss_l9_cand_val
+                                for cand_st_partial in poss_l9_cand_list:
+                                    if tipologia_strumento_scheda in cand_st_partial or cand_st_partial == tipologia_strumento_scheda:
+                                        sott_l9_eff = cand_st_partial
+                                        break
+                                if sott_l9_eff != "N/A": break
+
+                if tipologia_strumento_scheda not in config.REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE:
+                    congr_notes = f"Regole congruità non definite per tipologia '{tipologia_strumento_scheda}'."
+                else:
                     reg_tip = config.REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE[tipologia_strumento_scheda]
-                    sott_l9_eff = "N/A"
-                    if file_type == 'analogico' and not modello_l9_scheda_normalizzato.startswith("L9 VUOTO"):
-                        if modello_l9_scheda_normalizzato in config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA:
-                            poss_l9_val = config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA[modello_l9_scheda_normalizzato]
-                            poss_l9_list = [poss_l9_val] if isinstance(poss_l9_val, str) else poss_l9_val
-                            for cand_l9 in poss_l9_list:
-                                if tipologia_strumento_scheda in cand_l9 or cand_l9 == tipologia_strumento_scheda:
-                                    sott_l9_eff = cand_l9
-                                    break
+                    is_congr_prov, congr_notes_prov = False, f"INCONGRUO (default): '{mod_camp_reg}' per {tipologia_strumento_scheda} (L9:'{modello_l9_scheda_normalizzato}',SottL9Eff:'{sott_l9_eff}')."
 
-                    is_congr, congr_notes = False, f"INCONGRUO (default): '{mod_camp_reg}' per {tipologia_strumento_scheda}"
+                    # Caso speciale: LIVELLO con MANOMETRO DIGITALE
+                    if tipologia_strumento_scheda == "LIVELLO" and mod_camp_reg == "MANOMETRO DIGITALE":
+                        if file_type == 'digitale':
+                            is_congr_prov, congr_notes_prov = True, "OK (LIV digitale con MAN DIG)."
+                        elif file_type == 'analogico':
+                            um_usc_norm = normalize_um(raw_data.get('um_usc'))
+                            cond_dp_liv = (modello_l9_scheda_normalizzato == "DP")
+                            cond_tors_pneu_liv = ("TORSIONALE PNEUMATICO" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_PSI_NORMALIZZATA)
+                            cond_tors_locale_liv = ("TORSIONALE LOCALE" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_PSI_NORMALIZZATA)
+                            cond_capillare_liv = ("CAPILLARE" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_MA_NORMALIZZATA)
 
-                    # Logica di congruità effettiva
-                    if "eccezioni_l9_incongrui" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["eccezioni_l9_incongrui"] and mod_camp_reg in reg_tip["eccezioni_l9_incongrui"][sott_l9_eff]:
-                        is_congr, congr_notes = False, f"INCONGRUO (eccL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
+                            if cond_dp_liv or cond_tors_pneu_liv or cond_tors_locale_liv or cond_capillare_liv:
+                                is_congr_prov, congr_notes_prov = True, f"OK (LIV {modello_l9_scheda_normalizzato} an. con MAN DIG e UM Uscita corretta)."
+                            else:
+                                is_congr_prov, congr_notes_prov = False, f"INCONGRUO: MAN DIG per LIV an. L9='{modello_l9_scheda_normalizzato}' non supportato o UM uscita errata."
+
+                    elif "eccezioni_l9_incongrui" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["eccezioni_l9_incongrui"] and mod_camp_reg in reg_tip["eccezioni_l9_incongrui"][sott_l9_eff]:
+                        is_congr_prov, congr_notes_prov = False, f"INCONGRUO (eccL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
                     elif mod_camp_reg in reg_tip.get("modelli_campione_incongrui", []):
                         if "sottotipi_l9" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["sottotipi_l9"] and mod_camp_reg in reg_tip["sottotipi_l9"][sott_l9_eff]:
-                            is_congr, congr_notes = True, f"OK (sottL9 sovrascrive incongruo gen.):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
+                            is_congr_prov, congr_notes_prov = True, f"OK (sottL9 sovrascrive incongruo gen.):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
                         else:
-                            is_congr, congr_notes = False, f"INCONGRUO (lista gen):'{mod_camp_reg}' per {tipologia_strumento_scheda}."
+                            is_congr_prov, congr_notes_prov = False, f"INCONGRUO (lista gen):'{mod_camp_reg}' per {tipologia_strumento_scheda}."
                     elif "sottotipi_l9" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["sottotipi_l9"] and mod_camp_reg in reg_tip["sottotipi_l9"][sott_l9_eff]:
-                        is_congr, congr_notes = True, f"OK (sottL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
+                        is_congr_prov, congr_notes_prov = True, f"OK (sottL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
                     elif mod_camp_reg in reg_tip.get("modelli_campione_congrui", []):
-                        is_congr, congr_notes = True, "OK (regole base)."
-                    else:
-                        is_congr, congr_notes = False, f"INCONGRUO (non trovato in regole): '{mod_camp_reg}' per {tipologia_strumento_scheda} (L9:'{modello_l9_scheda_normalizzato}',SottL9Eff:'{sott_l9_eff}')."
-                else:
-                    congr_notes = "Tipologia strumento non valida per verifica congruità."
+                        is_congr_prov, congr_notes_prov = True, "OK (regole base)."
+
+                    is_congr, congr_notes = is_congr_prov, congr_notes_prov
 
         extracted_certs_data.append(
             CertificateUsage(

@@ -17,6 +17,7 @@ ANALYSIS_DATETIME = datetime.now(timezone.utc)
 
 # --- Costanti per Logging ---
 LOG_FILENAME_TEMPLATE = "log_analisi_schede_{timestamp}.txt"
+LOGS_DIR = None # Verrà impostato in load_config
 LOG_FILEPATH = None # Verrà determinato da _determine_log_filepath
 
 # --- Costanti per il Registro Strumenti ---
@@ -168,23 +169,23 @@ IDX_DIG_SUPERVISORE_ISAB = excel_coord_to_indices(SCHEDA_DIG_CELL_SUPERVISORE_IS
 IDX_DIG_CONTRATTO_COEMI = excel_coord_to_indices(SCHEDA_DIG_CELL_CONTRATTO_COEMI)
 
 # --- Funzione di Caricamento Configurazione ---
-# --- Costanti per il file di configurazione ---
-try:
-    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-except NameError:
-    SCRIPT_DIR = os.getcwd()
-
-NOME_FILE_PARAMETRI = "parametri.xlsm"
-PATH_FILE_PARAMETRI = os.path.normpath(os.path.join(SCRIPT_DIR, '..', NOME_FILE_PARAMETRI))
-NOME_FOGLIO_PARAMETRI = "parametri"
-
 def load_config():
     """
     Legge il file parametri.xlsm e popola le variabili di configurazione globali.
     Solleva FileNotFoundError, NotADirectoryError, o ValueError in caso di problemi critici.
     """
     global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
-    global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
+    global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX, LOGS_DIR
+
+    try:
+        SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        SCRIPT_DIR = os.getcwd()
+
+    PATH_FILE_PARAMETRI = os.path.normpath(os.path.join(SCRIPT_DIR, '..', "parametri.xlsm"))
+    NOME_FOGLIO_PARAMETRI = "parametri"
+    LOGS_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, '..', 'logs'))
+
 
     print(f"INFO: Tentativo di lettura percorsi da: {PATH_FILE_PARAMETRI}")
 
@@ -225,7 +226,7 @@ def load_config():
             else:
                 print(f"AVVISO: File dati compilazione specificato in B4 non trovato: {path}", file=sys.stderr)
     except IndexError:
-        pass # Opzionale
+        pass
 
     # Cella B5: FILE_MASTER_DIGITALE_XLSX (Opzionale)
     try:
@@ -237,7 +238,7 @@ def load_config():
             else:
                  print(f"AVVISO: File master digitale B5 non trovato o non .xlsx: {path}", file=sys.stderr)
     except IndexError:
-        pass # Opzionale
+        pass
 
     # Cella B6: FILE_MASTER_ANALOGICO_XLSX (Opzionale)
     try:
@@ -249,34 +250,22 @@ def load_config():
             else:
                 print(f"AVVISO: File master analogico B6 non trovato o non .xlsx: {path}", file=sys.stderr)
     except IndexError:
-        pass # Opzionale
+        pass
 
 
 def _determine_log_filepath():
     """Determina il percorso per il file di log."""
-    global LOG_FILEPATH, SCRIPT_DIR
-    now_local = ANALYSIS_DATETIME.astimezone()
-    timestamp_str = now_local.strftime("%Y%m%d_%H%M%S")
-    log_filename = LOG_FILENAME_TEMPLATE.format(timestamp=timestamp_str)
-    try:
-        documents_folder = os.path.join(os.path.expanduser("~"), "Documents", "AnalisiSchedeLogs")
-        if not os.path.exists(documents_folder):
-            os.makedirs(documents_folder, exist_ok=True)
-        filepath = os.path.join(documents_folder, log_filename)
-        with open(filepath, "a", encoding="utf-8") as f_test:
-            f_test.write("")
-        LOG_FILEPATH = filepath
-    except Exception:
-        if SCRIPT_DIR is None:
-             try: SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-             except NameError: SCRIPT_DIR = os.getcwd()
-        filepath = os.path.join(SCRIPT_DIR, '..', log_filename) # Salva nella root
-        filepath = os.path.normpath(filepath)
+    global LOG_FILEPATH, LOGS_DIR
+    if LOGS_DIR is None:
         try:
-            with open(filepath, "a", encoding="utf-8") as f_test: f_test.write("")
-            LOG_FILEPATH = filepath
-        except Exception:
-            LOG_FILEPATH = None
+            SCRIPT_DIR_TEMP = os.path.dirname(os.path.abspath(__file__))
+            LOGS_DIR = os.path.normpath(os.path.join(SCRIPT_DIR_TEMP, '..', 'logs'))
+        except NameError:
+             LOGS_DIR = "logs"
 
-# Chiamata per inizializzare il percorso del log all'importazione
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    timestamp_str = ANALYSIS_DATETIME.astimezone().strftime("%Y%m%d_%H%M%S")
+    log_filename = LOG_FILENAME_TEMPLATE.format(timestamp=timestamp_str)
+    LOG_FILEPATH = os.path.join(LOGS_DIR, log_filename)
+
 _determine_log_filepath()

@@ -1,0 +1,13 @@
+Si è verificato un errore critico durante l'avvio:
+
+TclError: no display name and no $DISPLAY environment variable
+
+------ TRACEBACK ------
+Traceback (most recent call last):
+  File "/app/main.py", line 75, in main
+    root = tk.Tk()
+           ^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/__init__.py", line 2346, in __init__
+    self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: no display name and no $DISPLAY environment variable
