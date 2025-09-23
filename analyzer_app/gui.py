@@ -9,6 +9,7 @@ import pyperclip # type: ignore
 import re
 import subprocess
 import sys
+import multiprocessing
 from collections import Counter, defaultdict
 from datetime import datetime
 from typing import List, Dict
@@ -17,7 +18,7 @@ from . import config
 from . import excel_io
 from . import analysis
 from . import reporting
-from .data_models import CertificateUsage
+from .data_models import InstrumentSheet, CertificateUsage
 
 logger = logging.getLogger(__name__)
 
