@@ -290,16 +290,35 @@ class App:
         self.cert_details_map.clear()
         for usage in self.all_cert_usages:
             details = self.cert_details_map[usage.certificate_id]
-            details['id'] = usage.certificate_id
+            # Initialize the dictionary for a new certificate ID
+            if not details.get('id'):
+                details['id'] = usage.certificate_id
+                details['utilizzi'] = 0
+                details['dettaglio_usi_list'] = []
+                details['date_utilizzo_obj_set'] = set()
+                details['range_su_scheda_counter'] = Counter()
+                details['tipologie_scheda_associate_counter'] = Counter()
+                details['usi_congrui'] = 0
+                details['usi_total_incongrui'] = 0
+                details['usi_prima_emissione'] = 0
+                details['usi_scaduti_puri'] = 0
+
             details['utilizzi'] += 1
             details['dettaglio_usi_list'].append(usage)
-            if usage.card_date: details['date_utilizzo_obj_set'].add(usage.card_date)
+            if usage.card_date:
+                details['date_utilizzo_obj_set'].add(usage.card_date)
             details['range_su_scheda_counter'][usage.instrument_range_on_card] += 1
             details['tipologie_scheda_associate_counter'][usage.tipologia_strumento_scheda] += 1
-            if usage.is_congruent: details['usi_congrui'] += 1
-            elif usage.is_congruent is False: details['usi_total_incongrui'] += 1
-            if usage.used_before_emission: details['usi_prima_emissione'] += 1
-            elif usage.is_expired_at_use: details['usi_scaduti_puri'] += 1
+
+            if usage.is_congruent:
+                details['usi_congrui'] += 1
+            elif usage.is_congruent is False:
+                details['usi_total_incongrui'] += 1
+
+            if usage.used_before_emission:
+                details['usi_prima_emissione'] += 1
+            elif usage.is_expired_at_use:
+                details['usi_scaduti_puri'] += 1
 
     def _prepare_data_for_treeview(self) -> List[Dict]:
         tree_data = []
