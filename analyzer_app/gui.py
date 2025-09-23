@@ -22,9 +22,6 @@ from .data_models import InstrumentSheet, CertificateUsage, SheetError
 
 logger = logging.getLogger(__name__)
 
-# This worker function runs in a separate process to read a single Excel file.
-# This is crucial for implementing a timeout, as some files might cause the
-# reading library to hang indefinitely.
 def read_file_worker(q, file_path):
     try:
         raw_data = excel_io.read_instrument_sheet_raw_data(file_path)
@@ -35,11 +32,10 @@ def read_file_worker(q, file_path):
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"Analisi Schede Taratura - v2.0 Refactored")
+        self.root.title(f"Analisi Schede Taratura - v4.0 Final")
         self.root.geometry("1750x980")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        # --- Instance Variables ---
         self.analysis_queue = queue.Queue()
         self.analysis_results: List[InstrumentSheet] = []
         self.all_cert_usages: List[CertificateUsage] = []
@@ -53,7 +49,7 @@ class App:
             'usi_congrui': 0, 'usi_total_incongrui': 0, 'usi_prima_emissione': 0, 'usi_scaduti_puri': 0,
             'dettaglio_usi_list': []
         })
-        self.last_clicked_item_id_for_toggle = [None] # Use a list for mutable access in closures
+        self.last_clicked_item_id_for_toggle = [None]
 
         self._setup_styles()
         self.create_widgets()
@@ -80,7 +76,6 @@ class App:
         self.notebook = ttk.Notebook(main_frame, style="TNotebook")
         self.notebook.pack(expand=True, fill='both', pady=(0, 10))
 
-        # --- Progress Tab (always visible) ---
         self.progress_tab = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.progress_tab, text=' Progresso Analisi ')
         log_frame = ttk.LabelFrame(self.progress_tab, text="Log di Analisi", padding=10)
@@ -95,7 +90,6 @@ class App:
         self.progress_label = ttk.Label(self.progress_tab, text="In attesa di iniziare l'analisi...")
         self.progress_label.pack(fill=tk.X)
 
-        # --- Result Tabs (initially disabled) ---
         self.cruscotto_tab = ttk.Frame(self.notebook, padding=10)
         self.cert_details_tab = ttk.Frame(self.notebook, padding=10)
         self.correction_tab = ttk.Frame(self.notebook, padding=10)
@@ -108,8 +102,6 @@ class App:
         self.notebook.add(self.suggerimenti_tab, text=' Suggerimenti Strumenti ', state=tk.DISABLED)
         self.notebook.add(self.config_tab, text=' Configurazione ', state=tk.DISABLED)
 
-    # --- Threading and Analysis Orchestration ---
-
     def _log_message(self, message, level="INFO"):
         self.root.after(0, self.__log_message_thread_safe, message, level)
 
@@ -121,13 +113,10 @@ class App:
         logger.log(logging.getLevelName(level), message)
 
     def start_analysis(self):
-        # Clear previous results and disable result tabs
         for i in self.notebook.tabs():
-            if self.notebook.index(i) > 0: # 0 is the progress tab
-                self.notebook.tab(i, state=tk.DISABLED)
+            if self.notebook.index(i) > 0: self.notebook.tab(i, state=tk.DISABLED)
         self.notebook.select(self.progress_tab)
         self.log_text.config(state=tk.NORMAL); self.log_text.delete('1.0', tk.END); self.log_text.config(state=tk.DISABLED)
-
         self._log_message("Avvio del thread di analisi...")
         self.progress_bar['value'] = 0
         self.analysis_thread = threading.Thread(target=self._analysis_worker, daemon=True)
@@ -140,14 +129,11 @@ class App:
             self.strumenti_campione = excel_io.leggi_registro_strumenti() or []
             self.analysis_queue.put(('log', f"Letti {len(self.strumenti_campione)} strumenti validi dal registro."))
             folder_path = config.FOLDER_PATH_DEFAULT
-            if not folder_path or not os.path.isdir(folder_path):
-                raise NotADirectoryError(f"La cartella delle schede non è valida: {folder_path}")
-
+            if not folder_path or not os.path.isdir(folder_path): raise NotADirectoryError(f"Cartella schede non valida: {folder_path}")
             candidate_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.xls', '.xlsx')) and not f.startswith('~')]
             self.candidate_files_count = len(candidate_files)
             self.analysis_queue.put(('log', f"Trovati {self.candidate_files_count} file candidati."))
             self.analysis_queue.put(('total_files', self.candidate_files_count))
-
             results = []
             for i, filename in enumerate(candidate_files):
                 file_path = os.path.join(folder_path, filename)
@@ -165,7 +151,6 @@ class App:
                     status, result = q.get()
                     if status == 'error': raise result
                     raw_data = result
-
                     self.analysis_queue.put(('log', f"Fase 2: Analisi logica per {filename}"))
                     sheet_result = analysis.analyze_sheet_data(raw_data, self.strumenti_campione)
                     results.append(sheet_result)
@@ -199,8 +184,7 @@ class App:
                     self.progress_label['text'] = f"Errore durante l'analisi: {data}"
                     messagebox.showerror("Errore di Analisi", f"Si è verificato un errore: {data}")
                     return
-        except queue.Empty:
-            pass
+        except queue.Empty: pass
         finally:
             if self.analysis_thread.is_alive():
                 self.root.after(100, self._check_analysis_queue)
@@ -221,8 +205,6 @@ class App:
         self._populate_suggerimenti_tab()
         self._populate_config_tab()
         self.notebook.select(self.cruscotto_tab)
-
-    # --- Metodi di popolamento per ogni TAB ---
 
     def _populate_cruscotto_tab(self):
         for widget in self.cruscotto_tab.winfo_children(): widget.destroy()
@@ -249,11 +231,9 @@ class App:
         for col_name in cols:
             self.tree_cert.heading(col_name, text=col_name, anchor=tk.W, command=partial(self._sort_treeview, self.tree_cert, col_name, False))
             self.tree_cert.column(col_name, width=col_widths.get(col_name, 120), minwidth=60, anchor=tk.W)
-
         self.tree_cert.tag_configure('child_base', font=tkFont.Font(family='Consolas', size=8), background='#FAFAFA')
         self.tree_cert.tag_configure('parent_has_issues', foreground='red', font=tkFont.Font(weight='bold'))
         self.tree_cert.tag_configure('child_error', foreground='red')
-
         data_for_tree = self._prepare_data_for_treeview()
         child_item_counter = 0
         for row_data in data_for_tree:
@@ -300,6 +280,49 @@ class App:
             self.files_tree_corr.insert("", "end", iid=res.file_path, values=(res.base_filename, len(res.human_errors)))
         self.files_tree_corr.bind("<<TreeviewSelect>>", self._on_file_error_select)
 
+    def _on_file_error_select(self, event):
+        for widget in self.errors_frame.winfo_children(): widget.destroy()
+        for widget in self.correction_panel.winfo_children(): widget.destroy()
+        selected_item = self.files_tree_corr.focus()
+        if not selected_item: return
+        sheet_result = next((res for res in self.analysis_results if res.file_path == selected_item), None)
+        if not sheet_result: return
+        cols = ("Descrizione", "Cella", "Suggerimento")
+        errors_tree = ttk.Treeview(self.errors_frame, columns=cols, show='headings')
+        for col in cols: errors_tree.heading(col, text=col)
+        errors_tree.pack(fill=tk.BOTH, expand=True)
+        for i, error in enumerate(sheet_result.human_errors):
+            errors_tree.insert("", "end", iid=str(i), values=(error.description, error.cell or 'N/A', error.suggestion or ''))
+        errors_tree.bind("<<TreeviewSelect>>", partial(self._on_error_detail_select, sheet_result, errors_tree))
+
+    def _on_error_detail_select(self, sheet_result, errors_tree, event):
+        for widget in self.correction_panel.winfo_children(): widget.destroy()
+        selected_item_id = errors_tree.focus()
+        if not selected_item_id: return
+        selected_error = sheet_result.human_errors[int(selected_item_id)]
+        ttk.Label(self.correction_panel, text="Cella da modificare:").grid(row=0, column=0, sticky='w')
+        ttk.Label(self.correction_panel, text=selected_error.cell or "N/A", font=('Segoe UI', 10, 'bold')).grid(row=0, column=1, sticky='w')
+        ttk.Label(self.correction_panel, text="Nuovo Valore:").grid(row=1, column=0, sticky='w')
+        entry = ttk.Entry(self.correction_panel)
+        if selected_error.suggestion: entry.insert(0, selected_error.suggestion)
+        entry.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
+        btn = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
+                         command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
+        btn.grid(row=2, column=1, sticky='e', pady=5)
+
+    def _apply_correction(self, file_path, cell, value):
+        if not cell:
+            messagebox.showerror("Errore", "Nessuna cella specificata per questo errore.", parent=self.root)
+            return
+        if not file_path.lower().endswith('.xlsx'):
+            messagebox.showwarning("Funzionalità Limitata", "La correzione automatica è supportata solo per i file .xlsx.", parent=self.root)
+            return
+        if excel_io.write_cell(file_path, cell, value):
+            messagebox.showinfo("Successo", "Correzione applicata. Rianalisi completa in corso...", parent=self.root)
+            self.start_analysis()
+        else:
+            messagebox.showerror("Errore", "Impossibile applicare la correzione. Controllare i log.", parent=self.root)
+
     def _populate_suggerimenti_tab(self):
         for widget in self.suggerimenti_tab.winfo_children(): widget.destroy()
         input_frame = ttk.LabelFrame(self.suggerimenti_tab, text="Parametri Ricerca", padding=10)
@@ -340,8 +363,6 @@ class App:
         frame.columnconfigure(1, weight=1)
         save_button = ttk.Button(self.config_tab, text="Salva Configurazione", command=self._save_config, style="Accent.TButton")
         save_button.pack(pady=10)
-
-    # --- Metodi Helper e Gestori di Eventi ---
 
     def _update_cert_details_map(self):
         self.cert_details_map.clear()
@@ -445,8 +466,26 @@ class App:
         except Exception as e:
             messagebox.showerror("Errore", f"Impossibile aprire il percorso: {e}", parent=self.root)
 
+    def _browse_file(self, entry_widget):
+        filepath = filedialog.askopenfilename(title="Seleziona File", filetypes=(("Excel Files", "*.xlsx *.xlsm *.xls"), ("All files", "*.*")))
+        if filepath:
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, filepath)
+
+    def _browse_folder(self, entry_widget):
+        folderpath = filedialog.askdirectory(title="Seleziona Cartella")
+        if folderpath:
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, folderpath)
+
+    def _save_config(self):
+        new_config_data = {key: entry.get() for key, entry in self.config_entries.items()}
+        if excel_io.save_configuration(new_config_data):
+            messagebox.showinfo("Successo", "Configurazione salvata con successo.\nSi prega di riavviare l'applicazione per applicare tutte le modifiche.", parent=self.root)
+        else:
+            messagebox.showerror("Errore", "Impossibile salvare la configurazione. Controllare i log per i dettagli.", parent=self.root)
+
     def _sort_treeview(self, tree, col, reverse):
-        # Dummy sort function
         pass
 
     def _on_close(self):
