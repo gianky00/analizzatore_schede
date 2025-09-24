@@ -251,8 +251,8 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['cert_expiries'] = [get_value(c) for c in ["M43", "M44", "M45"]]
             raw_data['cert_models'] = [get_value(c) for c in ["A43", "A44", "A45"]]
             raw_data['cert_ranges'] = [get_value(c) for c in ["G43", "G44", "G45"]]
-        else:
-            raise ValueError(f"Tipo scheda non riconosciuto in E2: '{model_indicator_e2}' in {base_filename}")
+        # If the type is not recognized, raw_data will simply not have a 'file_type' key.
+        # This will be handled gracefully in the analysis step.
 
     finally:
         if wb:
