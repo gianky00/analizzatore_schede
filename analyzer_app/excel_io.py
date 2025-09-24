@@ -140,11 +140,7 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
     file_ext = os.path.splitext(base_filename)[1].lower()
     raw_data = {'file_path': file_path, 'base_filename': base_filename}
 
-    target_filename_for_log = "10P180HA (19-09-2025).xlsx"
-    is_target_file = (base_filename == target_filename_for_log)
-
-    if is_target_file:
-        logger.info(f"--- Inizio tracciamento dettagliato per il file: {base_filename} ---")
+    logger.info(f"--- Inizio lettura file: {base_filename} ---")
 
     get_value = None
     wb = None # Per chiudere il workbook openpyxl
@@ -156,21 +152,17 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             def get_xlsx_value(coord_str):
                 try:
                     cell = ws[coord_str]
-                    # Logging condizionale per il file target
-                    if is_target_file:
-                        logger.info(f"File: {base_filename} - Richiesta cella: {coord_str}")
+                    logger.info(f"File: {base_filename} - Richiesta cella: {coord_str}")
 
                     for merged_range in ws.merged_cell_ranges:
                         if cell.coordinate in merged_range:
                             top_left_cell = ws.cell(row=merged_range.min_row, column=merged_range.min_col)
                             value = top_left_cell.value
-                            if is_target_file:
-                                logger.info(f"  -> Cella in range unito {merged_range}. Valore da '{top_left_cell.coordinate}': '{value}' (Tipo: {type(value).__name__})")
+                            logger.info(f"  -> Cella in range unito {merged_range}. Valore da '{top_left_cell.coordinate}': '{value}' (Tipo: {type(value).__name__})")
                             return value
 
                     value = cell.value
-                    if is_target_file:
-                        logger.info(f"  -> Cella non in range unito. Valore: '{value}' (Tipo: {type(value).__name__})")
+                    logger.info(f"  -> Cella non in range unito. Valore: '{value}' (Tipo: {type(value).__name__})")
                     return value
                 except Exception as e:
                     logger.error(f"File: {base_filename} - Eccezione in get_xlsx_value per {coord_str}: {e}", exc_info=True)
@@ -239,9 +231,9 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
         if wb:
             wb.close()
 
-    if is_target_file:
+    if file_ext == '.xlsx':
         logger.info(f"Dati grezzi finali estratti per {base_filename}: {raw_data}")
-        logger.info(f"--- Fine tracciamento dettagliato per il file: {base_filename} ---")
+    logger.info(f"--- Fine lettura file: {base_filename} ---")
 
     return raw_data
 
