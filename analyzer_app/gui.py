@@ -320,12 +320,15 @@ class App:
         if not selected_item: return
         sheet_result = next((res for res in self.analysis_results if res.file_path == selected_item), None)
         if not sheet_result: return
-        cols = ("Descrizione", "Cella", "Suggerimento")
+        cols = ("Descrizione", "Cella")
         errors_tree = ttk.Treeview(self.errors_frame, columns=cols, show='headings')
-        for col in cols: errors_tree.heading(col, text=col)
+        for col in cols:
+            errors_tree.heading(col, text=col)
+        errors_tree.column("Descrizione", width=400)
+        errors_tree.column("Cella", width=80, anchor='center')
         errors_tree.pack(fill=tk.BOTH, expand=True)
         for i, error in enumerate(sheet_result.human_errors):
-            errors_tree.insert("", "end", iid=str(i), values=(error.description, error.cell or 'N/A', error.suggestion or ''))
+            errors_tree.insert("", "end", iid=str(i), values=(error.description, error.cell or 'N/A'))
         errors_tree.bind("<<TreeviewSelect>>", partial(self._on_error_detail_select, sheet_result, errors_tree))
 
     def _on_error_detail_select(self, sheet_result, errors_tree, event):
