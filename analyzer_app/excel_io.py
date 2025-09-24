@@ -151,16 +151,21 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             ws = wb.active
             def get_xlsx_value(coord_str):
                 try:
-                    # Prima controlla se la cella è in un range unito.
-                    # Se lo è, il valore si trova solo nella cella in alto a sinistra del range.
                     cell = ws[coord_str]
+                    val_found = cell.value  # Default to the cell's own value
+
+                    # If in a merged range, the true value is in the top-left cell.
                     for merged_range in ws.merged_cell_ranges:
                         if cell.coordinate in merged_range:
-                            # Trovato il range, prendi il valore dalla cella top-left
                             top_left_cell = ws.cell(row=merged_range.min_row, column=merged_range.min_col)
-                            return top_left_cell.value
-                    # Se non è in nessun range unito, restituisce il valore della cella stessa.
-                    return cell.value
+                            val_found = top_left_cell.value
+                            break
+
+                    # If the found value is an empty string, treat it as None.
+                    if isinstance(val_found, str) and not val_found.strip():
+                        return None
+
+                    return val_found
                 except Exception:
                     return None
             get_value = get_xlsx_value
