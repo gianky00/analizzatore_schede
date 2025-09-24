@@ -182,20 +182,23 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                 try:
                     r, c = excel_coord_to_indices(coord_str)
 
-                    # Se la cella è in un range unito...
+                    val_found = None
                     if (r, c) in cell_to_merged_range_map:
                         rlo, rhi, clo, chi = cell_to_merged_range_map[(r, c)]
-                        # ...scansiona tutte le celle in quel range per un valore.
                         for row_idx, col_idx in product(range(rlo, rhi), range(clo, chi)):
                             cell_val = xls_sheet.cell_value(row_idx, col_idx)
-                            # Restituisce il primo valore non vuoto trovato.
                             if cell_val is not None and str(cell_val).strip() != '':
-                                return cell_val
-                        # Se tutte le celle nel range unito sono vuote, restituisce None.
-                        return None
+                                val_found = cell_val
+                                break # Value found, exit the loop
                     else:
-                        # Non è una cella unita, restituisce semplicemente il suo valore.
-                        return xls_sheet.cell_value(r, c)
+                        # Not a merged cell
+                        val_found = xls_sheet.cell_value(r, c)
+
+                    # If the found value is an empty string, treat it as None.
+                    if isinstance(val_found, str) and not val_found.strip():
+                        return None
+
+                    return val_found
                 except IndexError:
                     return None
             get_value = get_xls_value
