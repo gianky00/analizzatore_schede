@@ -85,7 +85,7 @@ def analyze_sheet_data(
             status="Tipo scheda non riconosciuto",
             is_valid=False,
             human_errors=human_errors,
-            compilation_data=CompilationData(file_path=file_path, base_filename=base_filename)
+            compilation_data=CompilationData(file_path=file_path, base_filename=base_filename, file_type=file_type)
         )
 
     sp_code_cell = config.SCHEDA_ANA_CELL_TIPOLOGIA_STRUM if file_type == 'analogico' else config.SCHEDA_DIG_CELL_TIPOLOGIA_STRUM
