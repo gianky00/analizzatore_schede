@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pandas as pd
+import xlrd
+from itertools import product
 from pandas.tseries.offsets import DateOffset
 from openpyxl import load_workbook
 
@@ -149,16 +151,21 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             ws = wb.active
             def get_xlsx_value(coord_str):
                 try:
-                    # Prima controlla se la cella è in un range unito.
-                    # Se lo è, il valore si trova solo nella cella in alto a sinistra del range.
                     cell = ws[coord_str]
+                    val_found = cell.value  # Default to the cell's own value
+
+                    # If in a merged range, the true value is in the top-left cell.
                     for merged_range in ws.merged_cell_ranges:
                         if cell.coordinate in merged_range:
-                            # Trovato il range, prendi il valore dalla cella top-left
                             top_left_cell = ws.cell(row=merged_range.min_row, column=merged_range.min_col)
-                            return top_left_cell.value
-                    # Se non è in nessun range unito, restituisce il valore della cella stessa.
-                    return cell.value
+                            val_found = top_left_cell.value
+                            break
+
+                    # If the found value is an empty string, treat it as None.
+                    if isinstance(val_found, str) and not val_found.strip():
+                        return None
+
+                    return val_found
                 except Exception:
                     return None
             get_value = get_xlsx_value
@@ -167,15 +174,41 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
 
     elif file_ext == '.xls':
         try:
-            df = pd.read_excel(file_path, header=None, sheet_name=0, engine='xlrd', dtype=str)
+            xls_workbook = xlrd.open_workbook(file_path)
+            xls_sheet = xls_workbook.sheet_by_index(0)
+
+            # Crea una mappa da una cella al range unito a cui appartiene.
+            cell_to_merged_range_map = {}
+            for rlo, rhi, clo, chi in xls_sheet.merged_cells:
+                for r, c in product(range(rlo, rhi), range(clo, chi)):
+                    cell_to_merged_range_map[(r, c)] = (rlo, rhi, clo, chi)
+
             def get_xls_value(coord_str):
                 try:
-                    indices = excel_coord_to_indices(coord_str)
-                    return df.iloc[indices[0], indices[1]]
-                except IndexError: return None
+                    r, c = excel_coord_to_indices(coord_str)
+
+                    val_found = None
+                    if (r, c) in cell_to_merged_range_map:
+                        rlo, rhi, clo, chi = cell_to_merged_range_map[(r, c)]
+                        for row_idx, col_idx in product(range(rlo, rhi), range(clo, chi)):
+                            cell_val = xls_sheet.cell_value(row_idx, col_idx)
+                            if cell_val is not None and str(cell_val).strip() != '':
+                                val_found = cell_val
+                                break # Value found, exit the loop
+                    else:
+                        # Not a merged cell
+                        val_found = xls_sheet.cell_value(r, c)
+
+                    # If the found value is an empty string, treat it as None.
+                    if isinstance(val_found, str) and not val_found.strip():
+                        return None
+
+                    return val_found
+                except IndexError:
+                    return None
             get_value = get_xls_value
         except Exception as e:
-            raise IOError(f"Errore apertura file .xls: {e}") from e
+            raise IOError(f"Errore apertura file .xls con xlrd: {e}") from e
     else:
         raise ValueError(f"Formato file non supportato: {file_ext}")
 

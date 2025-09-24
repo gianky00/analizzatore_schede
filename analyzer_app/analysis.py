@@ -77,8 +77,6 @@ def analyze_sheet_data(
         human_errors.append(SheetError(key=key, description=config.human_error_messages_map_descriptive.get(key, "Errore non definito"), cell=cell, suggestion=suggestion))
 
     card_date = parse_date_robust(raw_data.get('card_date'), base_filename)
-    if not card_date:
-        return InstrumentSheet(file_path=file_path, base_filename=base_filename, status=f"Data scheda non valida", is_valid=False)
 
     sp_code_cell = config.SCHEDA_ANA_CELL_TIPOLOGIA_STRUM if file_type == 'analogico' else config.SCHEDA_DIG_CELL_TIPOLOGIA_STRUM
     sp_code_raw_val = raw_data.get('sp_code')
@@ -122,6 +120,8 @@ def analyze_sheet_data(
     }
     if file_type in compilation_cells:
         for field, (key, cell) in compilation_cells[file_type].items():
+            # Nota: raw_data.get('card_date') è già stato parsato. Per la validazione di vuoto,
+            # dobbiamo controllare il valore grezzo originale, che è quello che fa questa logica.
             raw_value = raw_data.get(field.lower())
             if is_cell_value_empty(raw_value):
                 add_error(key, cell)
@@ -198,102 +198,104 @@ def analyze_sheet_data(
                     add_error(config.KEY_ERR_DIG_LIVELLO_D22_UM_NON_PERCENTO, config.SCHEDA_DIG_CELL_RANGE_UM_PROCESSO)
 
     extracted_certs_data = []
-    cert_ids = raw_data.get('cert_ids', [])
-    cert_expiries = raw_data.get('cert_expiries', [])
-    cert_models = raw_data.get('cert_models', [])
-    cert_ranges = raw_data.get('cert_ranges', [])
+    # La logica di validazione dei certificati viene eseguita solo se la data della scheda è presente.
+    if card_date:
+        cert_ids = raw_data.get('cert_ids', [])
+        cert_expiries = raw_data.get('cert_expiries', [])
+        cert_models = raw_data.get('cert_models', [])
+        cert_ranges = raw_data.get('cert_ranges', [])
 
-    for i in range(len(cert_ids)):
-        cert_id = str(cert_ids[i]).strip() if not is_cell_value_empty(cert_ids[i]) else None
-        if not cert_id: continue
+        for i in range(len(cert_ids)):
+            cert_id = str(cert_ids[i]).strip() if not is_cell_value_empty(cert_ids[i]) else None
+            if not cert_id: continue
 
-        logger.debug(f"In sheet '{base_filename}', searching for cert ID: '{cert_id}'")
+            logger.debug(f"In sheet '{base_filename}', searching for cert ID: '{cert_id}'")
 
-        exp_raw = cert_expiries[i]
-        cert_exp_dt = parse_date_robust(exp_raw, base_filename)
-        is_exp = bool(cert_exp_dt and card_date and cert_exp_dt < card_date)
+            exp_raw = cert_expiries[i]
+            cert_exp_dt = parse_date_robust(exp_raw, base_filename)
+            is_exp = bool(cert_exp_dt and card_date and cert_exp_dt < card_date)
 
-        is_congr = None
-        congr_notes = "Verifica non eseguita."
-        mod_camp_reg = "N/D"
-        used_before_em = False
+            is_congr = None
+            congr_notes = "Verifica non eseguita."
+            mod_camp_reg = "N/D"
+            used_before_em = False
 
-        found_camp = next((sc for sc in strumenti_campione_list if sc.id_certificato == cert_id), None)
-        if not found_camp:
-            congr_notes = f"Cert.ID '{cert_id}' NON TROVATO nel registro."
-        else:
-            mod_camp_reg = found_camp.modello_strumento
-            dt_em_camp = found_camp.data_emissione
-            if dt_em_camp and card_date and card_date < dt_em_camp:
-                used_before_em = True; is_congr = False
-                congr_notes = f"Usato prima dell'emissione (Scheda:{card_date:%d/%m/%Y}, Emiss:{dt_em_camp:%d/%m/%Y})"
+            found_camp = next((sc for sc in strumenti_campione_list if sc.id_certificato == cert_id), None)
+            if not found_camp:
+                congr_notes = f"Cert.ID '{cert_id}' NON TROVATO nel registro."
             else:
-                sott_l9_eff = "N/A"
-                if file_type == 'analogico' and not modello_l9_scheda_normalizzato.startswith(("L9 VUOTO", "Errore")):
-                    if modello_l9_scheda_normalizzato in config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA:
-                        poss_l9_val = config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA[modello_l9_scheda_normalizzato]
-                        poss_l9_list = [poss_l9_val] if isinstance(poss_l9_val, str) else poss_l9_val
-                        for cand_l9 in poss_l9_list:
-                            if tipologia_strumento_scheda in cand_l9 or cand_l9 == tipologia_strumento_scheda:
-                                sott_l9_eff = cand_l9
-                                break
-                    elif modello_l9_scheda_normalizzato: # Match parziale se non esatto
-                        for l9_key_map in sorted(config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA.keys(), key=len, reverse=True):
-                            if l9_key_map in modello_l9_scheda_normalizzato:
-                                poss_l9_cand_val = config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA[l9_key_map]
-                                poss_l9_cand_list = [poss_l9_cand_val] if isinstance(poss_l9_cand_val, str) else poss_l9_cand_val
-                                for cand_st_partial in poss_l9_cand_list:
-                                    if tipologia_strumento_scheda in cand_st_partial or cand_st_partial == tipologia_strumento_scheda:
-                                        sott_l9_eff = cand_st_partial
-                                        break
-                                if sott_l9_eff != "N/A": break
-
-                if tipologia_strumento_scheda not in config.REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE:
-                    congr_notes = f"Regole congruità non definite per tipologia '{tipologia_strumento_scheda}'."
+                mod_camp_reg = found_camp.modello_strumento
+                dt_em_camp = found_camp.data_emissione
+                if dt_em_camp and card_date and card_date < dt_em_camp:
+                    used_before_em = True; is_congr = False
+                    congr_notes = f"Usato prima dell'emissione (Scheda:{card_date:%d/%m/%Y}, Emiss:{dt_em_camp:%d/%m/%Y})"
                 else:
-                    reg_tip = config.REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE[tipologia_strumento_scheda]
-                    is_congr_prov, congr_notes_prov = False, f"INCONGRUO (default): '{mod_camp_reg}' per {tipologia_strumento_scheda} (L9:'{modello_l9_scheda_normalizzato}',SottL9Eff:'{sott_l9_eff}')."
+                    sott_l9_eff = "N/A"
+                    if file_type == 'analogico' and not modello_l9_scheda_normalizzato.startswith(("L9 VUOTO", "Errore")):
+                        if modello_l9_scheda_normalizzato in config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA:
+                            poss_l9_val = config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA[modello_l9_scheda_normalizzato]
+                            poss_l9_list = [poss_l9_val] if isinstance(poss_l9_val, str) else poss_l9_val
+                            for cand_l9 in poss_l9_list:
+                                if tipologia_strumento_scheda in cand_l9 or cand_l9 == tipologia_strumento_scheda:
+                                    sott_l9_eff = cand_l9
+                                    break
+                        elif modello_l9_scheda_normalizzato: # Match parziale se non esatto
+                            for l9_key_map in sorted(config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA.keys(), key=len, reverse=True):
+                                if l9_key_map in modello_l9_scheda_normalizzato:
+                                    poss_l9_cand_val = config.MAPPA_L9_SOTTOTIPO_NORMALIZZATA[l9_key_map]
+                                    poss_l9_cand_list = [poss_l9_cand_val] if isinstance(poss_l9_cand_val, str) else poss_l9_cand_val
+                                    for cand_st_partial in poss_l9_cand_list:
+                                        if tipologia_strumento_scheda in cand_st_partial or cand_st_partial == tipologia_strumento_scheda:
+                                            sott_l9_eff = cand_st_partial
+                                            break
+                                    if sott_l9_eff != "N/A": break
 
-                    # Caso speciale: LIVELLO con MANOMETRO DIGITALE
-                    if tipologia_strumento_scheda == "LIVELLO" and mod_camp_reg == "MANOMETRO DIGITALE":
-                        if file_type == 'digitale':
-                            is_congr_prov, congr_notes_prov = True, "OK (LIV digitale con MAN DIG)."
-                        elif file_type == 'analogico':
-                            um_usc_norm = normalize_um(raw_data.get('um_usc'))
-                            cond_dp_liv = (modello_l9_scheda_normalizzato == "DP")
-                            cond_tors_pneu_liv = ("TORSIONALE PNEUMATICO" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_PSI_NORMALIZZATA)
-                            cond_tors_locale_liv = ("TORSIONALE LOCALE" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_PSI_NORMALIZZATA)
-                            cond_capillare_liv = ("CAPILLARE" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_MA_NORMALIZZATA)
+                    if tipologia_strumento_scheda not in config.REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE:
+                        congr_notes = f"Regole congruità non definite per tipologia '{tipologia_strumento_scheda}'."
+                    else:
+                        reg_tip = config.REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE[tipologia_strumento_scheda]
+                        is_congr_prov, congr_notes_prov = False, f"INCONGRUO (default): '{mod_camp_reg}' per {tipologia_strumento_scheda} (L9:'{modello_l9_scheda_normalizzato}',SottL9Eff:'{sott_l9_eff}')."
 
-                            if cond_dp_liv or cond_tors_pneu_liv or cond_tors_locale_liv or cond_capillare_liv:
-                                is_congr_prov, congr_notes_prov = True, f"OK (LIV {modello_l9_scheda_normalizzato} an. con MAN DIG e UM Uscita corretta)."
+                        # Caso speciale: LIVELLO con MANOMETRO DIGITALE
+                        if tipologia_strumento_scheda == "LIVELLO" and mod_camp_reg == "MANOMETRO DIGITALE":
+                            if file_type == 'digitale':
+                                is_congr_prov, congr_notes_prov = True, "OK (LIV digitale con MAN DIG)."
+                            elif file_type == 'analogico':
+                                um_usc_norm = normalize_um(raw_data.get('um_usc'))
+                                cond_dp_liv = (modello_l9_scheda_normalizzato == "DP")
+                                cond_tors_pneu_liv = ("TORSIONALE PNEUMATICO" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_PSI_NORMALIZZATA)
+                                cond_tors_locale_liv = ("TORSIONALE LOCALE" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_PSI_NORMALIZZATA)
+                                cond_capillare_liv = ("CAPILLARE" in modello_l9_scheda_normalizzato and um_usc_norm == config.UM_MA_NORMALIZZATA)
+
+                                if cond_dp_liv or cond_tors_pneu_liv or cond_tors_locale_liv or cond_capillare_liv:
+                                    is_congr_prov, congr_notes_prov = True, f"OK (LIV {modello_l9_scheda_normalizzato} an. con MAN DIG e UM Uscita corretta)."
+                                else:
+                                    is_congr_prov, congr_notes_prov = False, f"INCONGRUO: MAN DIG per LIV an. L9='{modello_l9_scheda_normalizzato}' non supportato o UM uscita errata."
+
+                        elif "eccezioni_l9_incongrui" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["eccezioni_l9_incongrui"] and mod_camp_reg in reg_tip["eccezioni_l9_incongrui"][sott_l9_eff]:
+                            is_congr_prov, congr_notes_prov = False, f"INCONGRUO (eccL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
+                        elif mod_camp_reg in reg_tip.get("modelli_campione_incongrui", []):
+                            if "sottotipi_l9" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["sottotipi_l9"] and mod_camp_reg in reg_tip["sottotipi_l9"][sott_l9_eff]:
+                                is_congr_prov, congr_notes_prov = True, f"OK (sottL9 sovrascrive incongruo gen.):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
                             else:
-                                is_congr_prov, congr_notes_prov = False, f"INCONGRUO: MAN DIG per LIV an. L9='{modello_l9_scheda_normalizzato}' non supportato o UM uscita errata."
+                                is_congr_prov, congr_notes_prov = False, f"INCONGRUO (lista gen):'{mod_camp_reg}' per {tipologia_strumento_scheda}."
+                        elif "sottotipi_l9" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["sottotipi_l9"] and mod_camp_reg in reg_tip["sottotipi_l9"][sott_l9_eff]:
+                            is_congr_prov, congr_notes_prov = True, f"OK (sottL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
+                        elif mod_camp_reg in reg_tip.get("modelli_campione_congrui", []):
+                            is_congr_prov, congr_notes_prov = True, "OK (regole base)."
 
-                    elif "eccezioni_l9_incongrui" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["eccezioni_l9_incongrui"] and mod_camp_reg in reg_tip["eccezioni_l9_incongrui"][sott_l9_eff]:
-                        is_congr_prov, congr_notes_prov = False, f"INCONGRUO (eccL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
-                    elif mod_camp_reg in reg_tip.get("modelli_campione_incongrui", []):
-                        if "sottotipi_l9" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["sottotipi_l9"] and mod_camp_reg in reg_tip["sottotipi_l9"][sott_l9_eff]:
-                            is_congr_prov, congr_notes_prov = True, f"OK (sottL9 sovrascrive incongruo gen.):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
-                        else:
-                            is_congr_prov, congr_notes_prov = False, f"INCONGRUO (lista gen):'{mod_camp_reg}' per {tipologia_strumento_scheda}."
-                    elif "sottotipi_l9" in reg_tip and sott_l9_eff != "N/A" and sott_l9_eff in reg_tip["sottotipi_l9"] and mod_camp_reg in reg_tip["sottotipi_l9"][sott_l9_eff]:
-                        is_congr_prov, congr_notes_prov = True, f"OK (sottL9):'{mod_camp_reg}' per {tipologia_strumento_scheda}({sott_l9_eff})."
-                    elif mod_camp_reg in reg_tip.get("modelli_campione_congrui", []):
-                        is_congr_prov, congr_notes_prov = True, "OK (regole base)."
+                        is_congr, congr_notes = is_congr_prov, congr_notes_prov
 
-                    is_congr, congr_notes = is_congr_prov, congr_notes_prov
-
-        extracted_certs_data.append(
-            CertificateUsage(
-                file_name=base_filename, file_path=file_path, card_type=file_type, card_date=card_date,
-                certificate_id=cert_id, certificate_expiry_raw=str(exp_raw), certificate_expiry=cert_exp_dt,
-                instrument_model_on_card=str(cert_models[i]), instrument_range_on_card=str(cert_ranges[i]),
-                is_expired_at_use=is_exp, tipologia_strumento_scheda=tipologia_strumento_scheda,
-                modello_L9_scheda=modello_l9_scheda_normalizzato, modello_strumento_campione_usato=mod_camp_reg,
-                is_congruent=is_congr, congruency_notes=congr_notes, used_before_emission=used_before_em
+            extracted_certs_data.append(
+                CertificateUsage(
+                    file_name=base_filename, file_path=file_path, card_type=file_type, card_date=card_date,
+                    certificate_id=cert_id, certificate_expiry_raw=str(exp_raw), certificate_expiry=cert_exp_dt,
+                    instrument_model_on_card=str(cert_models[i]), instrument_range_on_card=str(cert_ranges[i]),
+                    is_expired_at_use=is_exp, tipologia_strumento_scheda=tipologia_strumento_scheda,
+                    modello_L9_scheda=modello_l9_scheda_normalizzato, modello_strumento_campione_usato=mod_camp_reg,
+                    is_congruent=is_congr, congruency_notes=congr_notes, used_before_emission=used_before_em
+                )
             )
-        )
 
     comp_data = CompilationData(
         file_path=file_path, base_filename=base_filename, file_type=file_type,
