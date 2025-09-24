@@ -149,74 +149,73 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
     raw_data = {'file_path': file_path, 'base_filename': base_filename}
 
     get_value = None
-    wb = None # Per chiudere il workbook openpyxl
+    wb_values = None
+    wb_formulas = None
 
-    if file_ext == '.xlsx':
-        try:
-            wb = load_workbook(filename=file_path, data_only=True, read_only=True)
-            ws = wb.active
+    try:
+        if file_ext == '.xlsx':
+            # Carica i workbook. read_only=False per accedere a merged_cells.
+            wb_values = load_workbook(filename=file_path, data_only=True, read_only=False)
+            ws_values = wb_values.active
+            wb_formulas = load_workbook(filename=file_path, data_only=False, read_only=False)
+            ws_formulas = wb_formulas.active
+
             def get_xlsx_value(coord_str):
-                try:
-                    cell = ws[coord_str]
-                    val_found = cell.value  # Default to the cell's own value
+                # Controlla la formula dalla vista formule
+                cell_formula = ws_formulas[coord_str]
+                if cell_formula.data_type == 'f':
+                    formula_str = str(cell_formula.value).strip().upper()
+                    # Generalizza il controllo per diversi errori di formula comuni
+                    if formula_str.startswith('=') and any(err in formula_str for err in ['NA()', '#N/A', '#VALUE!', '#REF!']):
+                        return "#FORMULA_ERROR#"
 
-                    # If in a merged range, the true value is in the top-left cell.
-                    for merged_range in ws.merged_cell_ranges:
-                        if cell.coordinate in merged_range:
-                            top_left_cell = ws.cell(row=merged_range.min_row, column=merged_range.min_col)
-                            val_found = top_left_cell.value
-                            break
+                # Altrimenti, ottieni il valore calcolato dalla vista valori
+                cell_value = ws_values[coord_str]
+                val_found = cell_value.value
 
-                    # Se il valore trovato è vuoto (None, NaN, o stringa vuota), lo trattiamo come None.
-                    if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
-                        return None
-                    return val_found
-                except Exception:
+                # Gestisci le celle unite usando l'attributo (ora disponibile)
+                for merged_range in ws_values.merged_cells:
+                    if cell_value.coordinate in merged_range:
+                        top_left_cell = ws_values.cell(row=merged_range.min_row, column=merged_range.min_col)
+                        val_found = top_left_cell.value
+                        break
+
+                # Aggiungi la normalizzazione cruciale per i valori vuoti
+                if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                     return None
+                return val_found
             get_value = get_xlsx_value
-        except Exception as e:
-            raise IOError(f"Errore apertura file .xlsx: {e}") from e
 
-    elif file_ext == '.xls':
-        try:
+        elif file_ext == '.xls':
             xls_workbook = xlrd.open_workbook(file_path)
             xls_sheet = xls_workbook.sheet_by_index(0)
 
-            # Crea una mappa da una cella al range unito a cui appartiene.
             cell_to_merged_range_map = {}
             for rlo, rhi, clo, chi in xls_sheet.merged_cells:
                 for r, c in product(range(rlo, rhi), range(clo, chi)):
                     cell_to_merged_range_map[(r, c)] = (rlo, rhi, clo, chi)
 
             def get_xls_value(coord_str):
-                try:
-                    r, c = excel_coord_to_indices(coord_str)
+                r, c = excel_coord_to_indices(coord_str)
+                val_found = None
+                if (r, c) in cell_to_merged_range_map:
+                    rlo, rhi, clo, chi = cell_to_merged_range_map[(r, c)]
+                    for row_idx, col_idx in product(range(rlo, rhi), range(clo, chi)):
+                        cell_val = xls_sheet.cell_value(row_idx, col_idx)
+                        if cell_val is not None and str(cell_val).strip() != '':
+                            val_found = cell_val
+                            break
+                else:
+                    val_found = xls_sheet.cell_value(r, c)
 
-                    val_found = None
-                    if (r, c) in cell_to_merged_range_map:
-                        rlo, rhi, clo, chi = cell_to_merged_range_map[(r, c)]
-                        for row_idx, col_idx in product(range(rlo, rhi), range(clo, chi)):
-                            cell_val = xls_sheet.cell_value(row_idx, col_idx)
-                            if cell_val is not None and str(cell_val).strip() != '':
-                                val_found = cell_val
-                                break # Value found, exit the loop
-                    else:
-                        # Not a merged cell
-                        val_found = xls_sheet.cell_value(r, c)
-
-                    # Se il valore trovato è vuoto (None, NaN, o stringa vuota), lo trattiamo come None.
-                    if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
-                        return None
-                    return val_found
-                except IndexError:
+                if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                     return None
+                return val_found
             get_value = get_xls_value
-        except Exception as e:
-            raise IOError(f"Errore apertura file .xls con xlrd: {e}") from e
-    else:
-        raise ValueError(f"Formato file non supportato: {file_ext}")
+        else:
+            raise ValueError(f"Formato file non supportato: {file_ext}")
 
-    try:
+        # --- Blocco di lettura dati ---
         model_indicator_e2 = get_value('E2')
         model_indicator_e2_str = str(model_indicator_e2).strip().upper() if model_indicator_e2 else ""
 
@@ -255,12 +254,11 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['cert_expiries'] = [get_value(c) for c in ["M43", "M44", "M45"]]
             raw_data['cert_models'] = [get_value(c) for c in ["A43", "A44", "A45"]]
             raw_data['cert_ranges'] = [get_value(c) for c in ["G43", "G44", "G45"]]
-        # If the type is not recognized, raw_data will simply not have a 'file_type' key.
-        # This will be handled gracefully in the analysis step.
 
     finally:
-        if wb:
-            wb.close()
+        # Chiudi i workbook se sono stati aperti
+        if wb_values: wb_values.close()
+        if wb_formulas: wb_formulas.close()
 
     return raw_data
 

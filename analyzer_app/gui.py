@@ -202,7 +202,7 @@ class App:
     def _process_final_results(self):
         self.validated_file_count = sum(1 for res in self.analysis_results if res.is_valid)
         self.all_cert_usages = [usage for res in self.analysis_results if res.is_valid for usage in res.certificate_usages]
-        self.human_errors_details = [{'file': res.base_filename, 'key': error.key, 'path': res.file_path} for res in self.analysis_results if res.is_valid for error in res.human_errors]
+        self.human_errors_details = [{'file': res.base_filename, 'key': error.key, 'path': res.file_path} for res in self.analysis_results if res.human_errors for error in res.human_errors]
         self._log_message(f"Elaborazione completata. Schede validate: {self.validated_file_count}/{self.candidate_files_count}")
         self._update_cert_details_map()
 
@@ -301,7 +301,7 @@ class App:
         self.correction_panel = ttk.LabelFrame(details_pane, text="Pannello di Correzione", padding=10)
         self.correction_panel.pack(fill=tk.X, pady=10)
         self.correction_panel.grid_columnconfigure(1, weight=1)
-        files_with_errors = [res for res in self.analysis_results if res.is_valid and res.human_errors]
+        files_with_errors = [res for res in self.analysis_results if not res.is_valid and res.human_errors]
         self.xlsx_files_tree.delete(*self.xlsx_files_tree.get_children())
         self.xls_files_tree.delete(*self.xls_files_tree.get_children())
         for res in files_with_errors:
