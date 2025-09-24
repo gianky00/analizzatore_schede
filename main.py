@@ -52,25 +52,19 @@ def setup_logging(log_path=None):
 
 def main():
     """Punto di ingresso principale dell'applicazione."""
-    # Set up basic console logging immediately to catch early errors
-    setup_logging()
-
     try:
-        # --- Imports are moved inside the try block ---
-        # This ensures that if any of them fail (e.g., missing dependency),
-        # the exception is caught and reported.
+        # Imports must happen before they are used.
         from analyzer_app import config
         from analyzer_app.gui import App
 
-        logging.info("Importazioni dei moduli dell'applicazione riuscite.")
-
-        # Now, load the configuration, which might fail if the file is missing/corrupt
+        # Load configuration first, as it determines the log path.
         config.load_config()
-        logging.info("Configurazione caricata da 'parametri.xlsm'.")
 
-        # Re-configure logging to include the file path from the now-loaded config
+        # Now that config is loaded, set up logging properly and only once.
+        # This will create the log file and set up console logging.
         setup_logging(log_path=config.LOG_FILEPATH)
 
+        logging.info("Configurazione e logging inizializzati con successo.")
         logging.info("Avvio dell'interfaccia grafica (GUI)...")
         root = tk.Tk()
         app = App(root)
