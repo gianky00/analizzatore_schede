@@ -114,7 +114,10 @@ def analyze_sheet_data(
     for tipo in tipi_da_controllare:
         for field, (key, cell) in compilation_cells[tipo].items():
             raw_value = raw_data.get(field.lower())
-            if is_cell_value_empty(raw_value):
+
+            if raw_value == "#FORMULA_ERROR#":
+                add_error(config.KEY_FORMULA_ERROR, cell)
+            elif is_cell_value_empty(raw_value):
                 add_error(key, cell)
             elif field == 'CONTRATTO':
                 contratto_val = str(raw_value).strip()
