@@ -147,17 +147,27 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
         try:
             wb = load_workbook(filename=file_path, data_only=True)
             ws = wb.active
+
+            # VERBOSE LOGGING
+            logger.info(f"File: {base_filename} - Foglio attivo: '{ws.title}'")
+            merged_ranges_str = [str(r) for r in ws.merged_cell_ranges]
+            logger.info(f"File: {base_filename} - Rilevati {len(merged_ranges_str)} range di celle unite: {merged_ranges_str}")
+
             def get_xlsx_value(coord_str):
                 try:
                     cell = ws[coord_str]
+                    logger.info(f"File: {base_filename} - Accesso a cella: {coord_str}")
                     for merged_range in ws.merged_cell_ranges:
                         if cell.coordinate in merged_range:
-                            # Trovato il range, prendi il valore dalla cella top-left
                             top_left_cell = ws.cell(row=merged_range.min_row, column=merged_range.min_col)
-                            return top_left_cell.value
-                    # Se non è in nessun range unito, restituisce il valore della cella stessa.
-                    return cell.value
-                except Exception:
+                            value = top_left_cell.value
+                            logger.info(f"  -> Cella in range unito {merged_range}. Valore da '{top_left_cell.coordinate}': '{value}'")
+                            return value
+                    value = cell.value
+                    logger.info(f"  -> Cella non in range unito. Valore: '{value}'")
+                    return value
+                except Exception as e:
+                    logger.error(f"File: {base_filename} - Eccezione in get_xlsx_value per {coord_str}: {e}", exc_info=True)
                     return None
             get_value = get_xlsx_value
         except Exception as e:
