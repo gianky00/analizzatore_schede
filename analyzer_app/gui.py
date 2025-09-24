@@ -36,7 +36,6 @@ class App:
         try:
             self.root.state('zoomed')
         except tk.TclError:
-            # Fallback for non-Windows systems
             w, h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
             self.root.geometry(f"{w}x{h}+0+0")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -263,13 +262,8 @@ class App:
                 child_tags = ['child_base']
                 if not uso_info.is_congruent or uso_info.used_before_emission or uso_info.is_expired_at_use:
                     child_tags.append('child_error')
-
-                # Aggiungi il percorso del file come tag per un recupero affidabile
                 child_tags.append(uso_info.file_path)
-
-                # Usa un iid semplice e unico che non sia il percorso del file
                 unique_iid = f"child_{child_item_counter}"
-
                 self.tree_cert.insert(parent_item_id, "end", values=child_vals, tags=tuple(child_tags), iid=unique_iid)
                 child_item_counter += 1
         self.tree_cert.bind("<Double-1>", self._on_tree_item_double_click)
@@ -334,35 +328,23 @@ class App:
     def _on_error_detail_select(self, sheet_result, errors_tree, event):
         for widget in self.correction_panel.winfo_children():
             widget.destroy()
-
         selected_item_id = errors_tree.focus()
-        if not selected_item_id:
-            return
-
+        if not selected_item_id: return
         selected_error = sheet_result.human_errors[int(selected_item_id)]
         is_xlsx = sheet_result.file_path.lower().endswith('.xlsx')
-
-        # Always show the "Apri Scheda" button
-        btn_open = ttk.Button(self.correction_panel, text="Apri Scheda",
-                              command=lambda: self._on_file_click(sheet_result.file_path, sheet_result.base_filename, open_file_direct=True))
+        btn_open = ttk.Button(self.correction_panel, text="Apri Scheda", command=lambda: self._on_file_click(sheet_result.file_path, sheet_result.base_filename, open_file_direct=True))
         btn_open.grid(row=2, column=0, sticky='w', pady=5)
-
         if is_xlsx and selected_error.cell:
-            # If the error is correctable, show the correction widgets and button
             ttk.Label(self.correction_panel, text="Cella da modificare:").grid(row=0, column=0, sticky='w')
             ttk.Label(self.correction_panel, text=selected_error.cell, font=('Segoe UI', 10, 'bold')).grid(row=0, column=1, sticky='w')
             ttk.Label(self.correction_panel, text="Nuovo Valore:").grid(row=1, column=0, sticky='w')
-
             entry = ttk.Entry(self.correction_panel)
             if selected_error.suggestion:
                 entry.insert(0, selected_error.suggestion)
             entry.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
-
-            btn_correct = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton",
-                                     command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
+            btn_correct = ttk.Button(self.correction_panel, text="Correggi e Rianalizza", style="Accent.TButton", command=lambda: self._apply_correction(sheet_result.file_path, selected_error.cell, entry.get()))
             btn_correct.grid(row=2, column=1, sticky='e', pady=5)
         else:
-            # Otherwise, show an informational message
             msg = "La modifica automatica è supportata solo per file .xlsx." if not is_xlsx else "Nessuna azione automatica disponibile per questo errore."
             ttk.Label(self.correction_panel, text=msg).grid(row=0, column=0, columnspan=2, sticky='w')
 
@@ -439,72 +421,27 @@ class App:
         save_button.pack(pady=10)
 
     def _update_cert_details_map(self):
-        """
-        Processes the flat list of all certificate usages (`self.all_cert_usages`)
-        and aggregates them into a structured dictionary (`self.cert_details_map`)
-        keyed by certificate ID. This method simplifies the data structure for easier
-        consumption by the UI.
-        """
         self.cert_details_map.clear()
         for usage in self.all_cert_usages:
-            # Get or create the dictionary for this certificate ID using the defaultdict factory
             details = self.cert_details_map[usage.certificate_id]
-
-            # The defaultdict factory initializes the structure, but we must set the unique ID
-            # the first time we encounter this certificate.
-            if not details['id']:
-                details['id'] = usage.certificate_id
-
-            # Increment usage counters
+            if not details['id']: details['id'] = usage.certificate_id
             details['utilizzi'] += 1
             details['dettaglio_usi_list'].append(usage)
-            if usage.card_date:
-                details['date_utilizzo_obj_set'].add(usage.card_date)
-
-            if usage.instrument_range_on_card:
-                details['range_su_scheda_counter'][usage.instrument_range_on_card] += 1
-
-            if usage.tipologia_strumento_scheda:
-                details['tipologie_scheda_associate_counter'][usage.tipologia_strumento_scheda] += 1
-
-            # Tally congruency and error types
-            if usage.is_congruent:
-                details['usi_congrui'] += 1
-            elif usage.is_congruent is False:
-                details['usi_total_incongrui'] += 1
-
-            if usage.used_before_emission:
-                details['usi_prima_emissione'] += 1
-            elif usage.is_expired_at_use:
-                details['usi_scaduti_puri'] += 1
+            if usage.card_date: details['date_utilizzo_obj_set'].add(usage.card_date)
+            if usage.instrument_range_on_card: details['range_su_scheda_counter'][usage.instrument_range_on_card] += 1
+            if usage.tipologia_strumento_scheda: details['tipologie_scheda_associate_counter'][usage.tipologia_strumento_scheda] += 1
+            if usage.is_congruent: details['usi_congrui'] += 1
+            elif usage.is_congruent is False: details['usi_total_incongrui'] += 1
+            if usage.used_before_emission: details['usi_prima_emissione'] += 1
+            elif usage.is_expired_at_use: details['usi_scaduti_puri'] += 1
 
     def _prepare_data_for_treeview(self) -> List[Dict]:
-        """
-        Transforms the aggregated data from `cert_details_map` into a list of
-        dictionaries suitable for direct insertion into the results Treeview.
-        This method also makes data access defensive to prevent KeyErrors.
-        """
         tree_data = []
         for cert_id, details in self.cert_details_map.items():
             scad_rec = max(details['date_utilizzo_obj_set']).strftime('%d/%m/%Y') if details['date_utilizzo_obj_set'] else "N/D"
             range_p = details['range_su_scheda_counter'].most_common(1)[0][0] if details['range_su_scheda_counter'] else "N/D"
             tip_p = details['tipologie_scheda_associate_counter'].most_common(1)[0][0] if details['tipologie_scheda_associate_counter'] else "N/D"
-
-            # Use .get() with a default value (0) for all numeric fields
-            # to prevent crashes if the data structure is unexpectedly missing a key.
-            tree_data.append({
-                "ID Certificato": cert_id,
-                "Utilizzi": details.get('utilizzi', 0),
-                "Tipologia Principale": tip_p,
-                "Congrui": details.get('usi_congrui', 0),
-                "Non Congrui": details.get('usi_total_incongrui', 0),
-                "Prima Emiss.": details.get('usi_prima_emissione', 0),
-                "Scaduti": details.get('usi_scaduti_puri', 0),
-                "Scadenza Recente": scad_rec,
-                "Range Principale": range_p
-            })
-
-        # Sort the results to show the most problematic certificates first
+            tree_data.append({ "ID Certificato": cert_id, "Utilizzi": details.get('utilizzi', 0), "Tipologia Principale": tip_p, "Congrui": details.get('usi_congrui', 0), "Non Congrui": details.get('usi_total_incongrui', 0), "Prima Emiss.": details.get('usi_prima_emissione', 0), "Scaduti": details.get('usi_scaduti_puri', 0), "Scadenza Recente": scad_rec, "Range Principale": range_p })
         return sorted(tree_data, key=lambda x: (-x.get("Prima Emiss.", 0), -x.get("Non Congrui", 0), -x.get("Utilizzi", 0)))
 
     def _on_tree_item_single_click(self, event):
@@ -522,22 +459,16 @@ class App:
     def _on_tree_item_double_click(self, event):
         item_id = self.tree_cert.identify_row(event.y)
         if not item_id: return
-
-        if self.tree_cert.parent(item_id):  # It's a child item
+        if self.tree_cert.parent(item_id):
             tags = self.tree_cert.item(item_id, 'tags')
             file_path_to_open = None
             for tag in tags:
-                # The file path is the tag that ends with a valid Excel extension.
-                # os.path.exists() is unreliable with UNC paths, so we use this heuristic.
                 if isinstance(tag, str) and (tag.lower().endswith('.xls') or tag.lower().endswith('.xlsx')):
                     file_path_to_open = tag
                     break
-
-            if file_path_to_open:
-                self._on_file_click(file_path_to_open, os.path.basename(file_path_to_open), open_file_direct=True)
-            else:
-                logger.warning(f"Nessun tag con estensione .xls/.xlsx trovato per l'item {item_id}: {tags}")
-        else:  # It's a parent item
+            if file_path_to_open: self._on_file_click(file_path_to_open, os.path.basename(file_path_to_open), open_file_direct=True)
+            else: logger.warning(f"Nessun tag con estensione .xls/.xlsx trovato per l'item {item_id}: {tags}")
+        else:
             values = self.tree_cert.item(item_id, 'values')
             cert_id, range_val = values[0], values[8]
             self.notebook.select(self.suggerimenti_tab)
@@ -550,14 +481,11 @@ class App:
         range_req = self.range_sugg_entry.get().strip()
         date_ref_str = self.date_sugg_entry.get().strip()
         date_ref = excel_io.parse_date_robust(date_ref_str)
-        if not date_ref:
-            messagebox.showerror("Errore Data", "Formato data non valido. Usare gg/mm/aaaa.", parent=self.root)
-            return
+        if not date_ref: messagebox.showerror("Errore Data", "Formato data non valido. Usare gg/mm/aaaa.", parent=self.root); return
         results = analysis.trova_strumenti_alternativi(range_req, date_ref, self.strumenti_campione)
         self.sugg_results_text.config(state=tk.NORMAL)
         self.sugg_results_text.delete("1.0", tk.END)
-        if not results:
-            self.sugg_results_text.insert(tk.END, "Nessuna alternativa valida trovata.")
+        if not results: self.sugg_results_text.insert(tk.END, "Nessuna alternativa valida trovata.")
         else:
             count = 0
             for res in results:
@@ -578,10 +506,8 @@ class App:
             elif usage.is_expired_at_use: item['alert_type'] = 'expired_at_use'; temporal_list.append(item)
             if usage.is_congruent is False and not usage.used_before_emission: incongruent_list.append(item)
         file_path = reporting.crea_e_apri_report_anomalie_word(self.human_errors_details, temporal_list, incongruent_list, self.candidate_files_count, self.validated_file_count)
-        if file_path:
-            messagebox.showinfo("Report Generato", f"Report Word generato e aperto:\n{file_path}", parent=self.root)
-        else:
-            messagebox.showwarning("Report non Generato", "Nessuna anomalia significativa trovata o si è verificato un errore.", parent=self.root)
+        if file_path: messagebox.showinfo("Report Generato", f"Report Word generato e aperto:\n{file_path}", parent=self.root)
+        else: messagebox.showwarning("Report non Generato", "Nessuna anomalia significativa trovata o si è verificato un errore.", parent=self.root)
 
     def _on_file_click(self, file_path, filename, open_file_direct=False):
         try:
@@ -591,74 +517,43 @@ class App:
                 target = file_path if open_file_direct else os.path.dirname(file_path)
                 if sys.platform == "win32": os.startfile(target)
                 else: subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", target])
-        except Exception as e:
-            messagebox.showerror("Errore", f"Impossibile aprire il percorso: {e}", parent=self.root)
+        except Exception as e: messagebox.showerror("Errore", f"Impossibile aprire il percorso: {e}", parent=self.root)
 
     def _browse_file(self, entry_widget):
         filepath = filedialog.askopenfilename(title="Seleziona File", filetypes=(("Excel Files", "*.xlsx *.xlsm *.xls"), ("All files", "*.*")))
-        if filepath:
-            entry_widget.delete(0, tk.END)
-            entry_widget.insert(0, filepath)
+        if filepath: entry_widget.delete(0, tk.END); entry_widget.insert(0, filepath)
 
     def _browse_folder(self, entry_widget):
         folderpath = filedialog.askdirectory(title="Seleziona Cartella")
-        if folderpath:
-            entry_widget.delete(0, tk.END)
-            entry_widget.insert(0, folderpath)
+        if folderpath: entry_widget.delete(0, tk.END); entry_widget.insert(0, folderpath)
 
     def _save_config(self):
         new_config_data = {key: entry.get() for key, entry in self.config_entries.items()}
-        if excel_io.save_configuration(new_config_data):
-            messagebox.showinfo("Successo", "Configurazione salvata con successo. Le modifiche saranno applicate alla prossima analisi.", parent=self.root)
-        else:
-            messagebox.showerror("Errore", "Impossibile salvare la configurazione. Controllare i log per i dettagli.", parent=self.root)
+        if excel_io.save_configuration(new_config_data): messagebox.showinfo("Successo", "Configurazione salvata con successo. Le modifiche saranno applicate alla prossima analisi.", parent=self.root)
+        else: messagebox.showerror("Errore", "Impossibile salvare la configurazione. Controllare i log per i dettagli.", parent=self.root)
 
     def _populate_autofill_tab(self):
-        """Populates the 'Compilatore Automatico' tab with a button and instructions."""
-        for widget in self.autofill_tab.winfo_children():
-            widget.destroy()
-
+        for widget in self.autofill_tab.winfo_children(): widget.destroy()
         action_frame = ttk.LabelFrame(self.autofill_tab, text="Azione", padding=10)
         action_frame.pack(fill=tk.X, pady=10, padx=10)
-
-        autofill_button = ttk.Button(action_frame, text="Avvia Compilazione Automatica",
-                                     command=self._run_autofill, style="Accent.TButton")
+        autofill_button = ttk.Button(action_frame, text="Avvia Compilazione Automatica", command=self._run_autofill, style="Accent.TButton")
         autofill_button.pack(pady=10)
-
         if not config.FILE_DATI_COMPILAZIONE_SCHEDE:
             autofill_button.config(state=tk.DISABLED)
-            ttk.Label(action_frame,
-                      text="Funzione disabilitata: il 'File Dati Compilazione' non è specificato nella Configurazione.",
-                      foreground="orange").pack(pady=5)
-
+            ttk.Label(action_frame, text="Funzione disabilitata: il 'File Dati Compilazione' non è specificato nella Configurazione.", foreground="orange").pack(pady=5)
         info_text_frame = ttk.LabelFrame(self.autofill_tab, text="Informazioni", padding=10)
         info_text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        info_text = (
-            "Questa funzione tenta di compilare automaticamente i campi anagrafici mancanti "
-            "(ODC, Data, PDL, Esecutore, etc.) nelle schede analizzate.\n\n"
-            "1. Cerca errori di compilazione anagrafica nelle schede analizzate.\n"
-            "2. Per ogni scheda con errori, cerca una corrispondenza nel file 'Dati Compilazione' "
-            "(specificato nella Configurazione) basandosi su PDL o ODC.\n"
-            "3. Se trova una corrispondenza, scrive i dati mancanti nel file della scheda.\n\n"
-            "ATTENZIONE:\n"
-            "- Verranno modificati i file .xlsx nella cartella analizzata.\n"
-            "- I file .xls verranno convertiti in .xlsx usando i file master specificati in configurazione. "
-            "Il file .xls originale verrà cancellato."
-        )
-
+        info_text = ( "Questa funzione tenta di compilare automaticamente i campi anagrafici mancanti " "(ODC, Data, PDL, Esecutore, etc.) nelle schede analizzate.\n\n" "1. Cerca errori di compilazione anagrafica nelle schede analizzate.\n" "2. Per ogni scheda con errori, cerca una corrispondenza nel file 'Dati Compilazione' " "(specificato nella Configurazione) basandosi su PDL o ODC.\n" "3. Se trova una corrispondenza, scrive i dati mancanti nel file della scheda.\n\n" "ATTENZIONE:\n" "- Verranno modificati i file .xlsx nella cartella analizzata.\n" "- I file .xls verranno convertiti in .xlsx usando i file master specificati in configurazione. " "Il file .xls originale verrà cancellato." )
         info_label = ttk.Label(info_text_frame, text=info_text, wraplength=600, justify=tk.LEFT)
         info_label.pack(padx=10, pady=10)
 
     def _run_autofill(self):
         self._log_message("Avvio compilazione automatica schede...", "INFO")
-
         if not config.FILE_DATI_COMPILAZIONE_SCHEDE or not os.path.exists(config.FILE_DATI_COMPILAZIONE_SCHEDE):
             msg = f"File dati compilazione ({config.FILE_DATI_COMPILAZIONE_SCHEDE}) non trovato."
             self._log_message(msg, "ERROR")
             messagebox.showerror("Errore File Compilazione", f"{msg}\nControllare parametri.xlsm (B4).", parent=self.root)
             return
-
         try:
             df_sorgente = pd.read_excel(config.FILE_DATI_COMPILAZIONE_SCHEDE, sheet_name=config.NOME_FOGLIO_DATI_COMPILAZIONE, engine='openpyxl', header=0)
             self._log_message(f"Letti {len(df_sorgente)} righe dal file dati compilazione.", "INFO")
@@ -666,27 +561,15 @@ class App:
             self._log_message(f"Errore lettura file dati compilazione: {e}", "ERROR")
             messagebox.showerror("Errore Lettura File Sorgente", f"Impossibile leggere il file dati:\n{e}", parent=self.root)
             return
-
         schede_con_errori_comp = [res for res in self.analysis_results if any(e.key.startswith("COMP_") for e in res.human_errors)]
         if not schede_con_errori_comp:
             messagebox.showinfo("Nessuna Azione", "Nessuna scheda con errori di compilazione anagrafica trovata.", parent=self.root)
             return
-
         modifiche_conteggio = 0
         for sheet_result in schede_con_errori_comp:
             self._log_message(f"Processo scheda: {sheet_result.base_filename}", "DEBUG")
-            # Logica per trovare la riga corrispondente in df_sorgente...
-            # ... (logica di ricerca per PDL e ODC) ...
-
-            # Placeholder per la logica di scrittura
-            # if dati_da_scrivere:
-            #   if excel_io.write_cell(...):
-            #      modifiche_conteggio += 1
-
-        if modifiche_conteggio > 0:
-            messagebox.showinfo("Compilazione Completata", f"{modifiche_conteggio} schede sono state aggiornate.\nRianalizzare per vedere i cambiamenti.", parent=self.root)
-        else:
-            messagebox.showinfo("Compilazione Completata", "Nessuna scheda è stata modificata. Controllare il log per i dettagli.", parent=self.root)
+        if modifiche_conteggio > 0: messagebox.showinfo("Compilazione Completata", f"{modifiche_conteggio} schede sono state aggiornate.\nRianalizzare per vedere i cambiamenti.", parent=self.root)
+        else: messagebox.showinfo("Compilazione Completata", "Nessuna scheda è stata modificata. Controllare il log per i dettagli.", parent=self.root)
         self._log_message("Processo di compilazione automatica terminato.", "INFO")
 
     def _sort_treeview(self, tree, col, reverse):
