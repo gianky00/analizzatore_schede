@@ -80,36 +80,18 @@ def analyze_sheet_data(
 
     if not file_type:
         add_error(config.KEY_TIPO_SCHEDA_SCONOSCIUTO, cell="E2")
-        return InstrumentSheet(
-            file_path=file_path, base_filename=base_filename,
-            status="Tipo scheda non riconosciuto",
-            is_valid=False,
-            human_errors=human_errors,
-            compilation_data=CompilationData(file_path=file_path, base_filename=base_filename, file_type=file_type)
-        )
 
-    sp_code_cell = config.SCHEDA_ANA_CELL_TIPOLOGIA_STRUM if file_type == 'analogico' else config.SCHEDA_DIG_CELL_TIPOLOGIA_STRUM
-    sp_code_raw_val = raw_data.get('sp_code')
-    sp_code_normalizzato_letto = normalize_sp_code(sp_code_raw_val)
-    tipologia_strumento_scheda = config.MAPPA_SP_TIPOLOGIA.get(sp_code_normalizzato_letto, "N/D")
-    if tipologia_strumento_scheda == "N/D":
-        add_error(config.KEY_SP_VUOTO, cell=sp_code_cell)
-
-    modello_l9_scheda_normalizzato = "N/A"
-    if file_type == "analogico":
-        modello_l9_raw_value = raw_data.get('modello_l9')
-        if is_cell_value_empty(modello_l9_raw_value):
-            add_error(config.KEY_L9_VUOTO, cell=config.SCHEDA_ANA_CELL_MODELLO_STRUM)
-            modello_l9_scheda_normalizzato = "L9 VUOTO"
-        else:
-            modello_l9_temp = str(modello_l9_raw_value).strip().upper().replace('ΔP', 'DP').replace('DELTA P', 'DP').replace("SKINPOINT", "SKIN POINT")
-            modello_l9_scheda_normalizzato = " ".join(modello_l9_temp.split())
-            if modello_l9_scheda_normalizzato == "SKIN POINT":
-                add_error(config.KEY_L9_SKINPOINT_INCOMPLETO, cell=config.SCHEDA_ANA_CELL_MODELLO_STRUM)
+    # La validazione prosegue anche se il tipo non è riconosciuto,
+    # per poter segnalare altri errori (es. data mancante).
 
     # --- Inizio Logica di Validazione ---
+    tipologia_strumento_scheda = "N/D"
+    modello_l9_scheda_normalizzato = "N/A"
 
     # 1. Validazione campi di compilazione (ODC, Data, PDL, etc.)
+    # Determina quali set di celle controllare. Se il tipo è sconosciuto, li controlla entrambi.
+    tipi_da_controllare = ['analogico', 'digitale'] if not file_type else [file_type]
+
     compilation_cells = {
         'analogico': {
             'ODC': (config.KEY_COMP_ANA_ODC_MANCANTE, config.SCHEDA_ANA_CELL_ODC),
@@ -128,23 +110,42 @@ def analyze_sheet_data(
             'CONTRATTO': (config.KEY_COMP_DIG_CONTRATTO_MANCANTE, config.SCHEDA_DIG_CELL_CONTRATTO_COEMI)
         }
     }
-    if file_type in compilation_cells:
-        for field, (key, cell) in compilation_cells[file_type].items():
-            # Nota: raw_data.get('card_date') è già stato parsato. Per la validazione di vuoto,
-            # dobbiamo controllare il valore grezzo originale, che è quello che fa questa logica.
+
+    for tipo in tipi_da_controllare:
+        for field, (key, cell) in compilation_cells[tipo].items():
             raw_value = raw_data.get(field.lower())
             if is_cell_value_empty(raw_value):
                 add_error(key, cell)
             elif field == 'CONTRATTO':
                 contratto_val = str(raw_value).strip()
                 if not (contratto_val == config.VALORE_ATTESO_CONTRATTO_COEMI or contratto_val == config.VALORE_ATTESO_CONTRATTO_COEMI_VARIANTE_NUMERICA):
-                    key_diverso = config.KEY_COMP_ANA_CONTRATTO_DIVERSO if file_type == 'analogico' else config.KEY_COMP_DIG_CONTRATTO_DIVERSO
+                    key_diverso = config.KEY_COMP_ANA_CONTRATTO_DIVERSO if tipo == 'analogico' else config.KEY_COMP_DIG_CONTRATTO_DIVERSO
                     add_error(key_diverso, cell, suggestion=config.VALORE_ATTESO_CONTRATTO_COEMI)
 
-    # 2. Validazione Range/UM
-    if tipologia_strumento_scheda != "N/D":
+    # La logica di validazione specifica (SP code, L9, Range/UM) viene eseguita solo se il tipo di file è noto.
+    if file_type:
+        sp_code_cell = config.SCHEDA_ANA_CELL_TIPOLOGIA_STRUM if file_type == 'analogico' else config.SCHEDA_DIG_CELL_TIPOLOGIA_STRUM
+        sp_code_raw_val = raw_data.get('sp_code')
+        sp_code_normalizzato_letto = normalize_sp_code(sp_code_raw_val)
+        tipologia_strumento_scheda = config.MAPPA_SP_TIPOLOGIA.get(sp_code_normalizzato_letto, "N/D")
+        if tipologia_strumento_scheda == "N/D":
+            add_error(config.KEY_SP_VUOTO, cell=sp_code_cell)
+
         if file_type == "analogico":
-            range_ing_norm = normalize_range_string(raw_data.get('range_ing'))
+            modello_l9_raw_value = raw_data.get('modello_l9')
+            if is_cell_value_empty(modello_l9_raw_value):
+                add_error(config.KEY_L9_VUOTO, cell=config.SCHEDA_ANA_CELL_MODELLO_STRUM)
+                modello_l9_scheda_normalizzato = "L9 VUOTO"
+            else:
+                modello_l9_temp = str(modello_l9_raw_value).strip().upper().replace('ΔP', 'DP').replace('DELTA P', 'DP').replace("SKINPOINT", "SKIN POINT")
+                modello_l9_scheda_normalizzato = " ".join(modello_l9_temp.split())
+                if modello_l9_scheda_normalizzato == "SKIN POINT":
+                    add_error(config.KEY_L9_SKINPOINT_INCOMPLETO, cell=config.SCHEDA_ANA_CELL_MODELLO_STRUM)
+
+        # 2. Validazione Range/UM
+        if tipologia_strumento_scheda != "N/D":
+            if file_type == "analogico":
+                range_ing_norm = normalize_range_string(raw_data.get('range_ing'))
             um_ing_norm = normalize_um(raw_data.get('um_ing'))
             range_usc_norm = normalize_range_string(raw_data.get('range_usc'))
             um_usc_norm = normalize_um(raw_data.get('um_usc'))
@@ -313,10 +314,15 @@ def analyze_sheet_data(
         odc_val_scheda=str(raw_data.get('odc')).strip() if not is_cell_value_empty(raw_data.get('odc')) else None
     )
 
+    status_msg = f"{file_type} - {len(extracted_certs_data)} cert." if file_type else "Tipo scheda non riconosciuto"
+
+    # Se ci sono errori, lo stato generale del foglio è invalido.
+    is_valid_sheet = not human_errors
+
     return InstrumentSheet(
         file_path=file_path, base_filename=base_filename,
-        status=f"{file_type} - {len(extracted_certs_data)} cert.",
-        is_valid=True, card_date=card_date, file_type=file_type,
+        status=status_msg,
+        is_valid=is_valid_sheet, card_date=card_date, file_type=file_type,
         tipologia_strumento=tipologia_strumento_scheda,
         modello_l9=modello_l9_scheda_normalizzato,
         certificate_usages=extracted_certs_data,

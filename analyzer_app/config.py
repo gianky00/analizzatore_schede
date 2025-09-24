@@ -12,8 +12,18 @@ FOLDER_PATH_DEFAULT = None
 FILE_DATI_COMPILAZIONE_SCHEDE = None
 FILE_MASTER_DIGITALE_XLSX = None
 FILE_MASTER_ANALOGICO_XLSX = None
-SCRIPT_DIR = None
 ANALYSIS_DATETIME = datetime.now(timezone.utc)
+
+# --- Percorsi e Costanti Fondamentali ---
+try:
+    # Questa è la modalità standard quando lo script è eseguito come modulo
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    # Fallback per quando lo script è eseguito in un ambiente dove __file__ non è definito
+    SCRIPT_DIR = os.getcwd()
+
+PATH_FILE_PARAMETRI = os.path.normpath(os.path.join(SCRIPT_DIR, '..', "parametri.xlsm"))
+NOME_FOGLIO_PARAMETRI = "parametri"
 
 # --- Costanti per Logging ---
 LOG_FILENAME_TEMPLATE = "log_analisi_schede_{timestamp}.txt"
@@ -179,15 +189,8 @@ def load_config():
     global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
     global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX, LOGS_DIR
 
-    try:
-        SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    except NameError:
-        SCRIPT_DIR = os.getcwd()
-
-    PATH_FILE_PARAMETRI = os.path.normpath(os.path.join(SCRIPT_DIR, '..', "parametri.xlsm"))
-    NOME_FOGLIO_PARAMETRI = "parametri"
+    # SCRIPT_DIR e PATH_FILE_PARAMETRI sono ora costanti a livello di modulo.
     LOGS_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, '..', 'logs'))
-
 
     print(f"INFO: Tentativo di lettura percorsi da: {PATH_FILE_PARAMETRI}")
 
@@ -259,11 +262,8 @@ def _determine_log_filepath():
     """Determina il percorso per il file di log."""
     global LOG_FILEPATH, LOGS_DIR
     if LOGS_DIR is None:
-        try:
-            SCRIPT_DIR_TEMP = os.path.dirname(os.path.abspath(__file__))
-            LOGS_DIR = os.path.normpath(os.path.join(SCRIPT_DIR_TEMP, '..', 'logs'))
-        except NameError:
-             LOGS_DIR = "logs"
+        # SCRIPT_DIR è ora una costante globale, non serve ricalcolarlo.
+        LOGS_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, '..', 'logs'))
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     timestamp_str = ANALYSIS_DATETIME.astimezone().strftime("%Y%m%d_%H%M%S")
