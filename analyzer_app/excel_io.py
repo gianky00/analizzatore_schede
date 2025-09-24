@@ -34,6 +34,12 @@ def parse_date_robust(date_val, context_filename: str = "N/A") -> Optional[datet
     """
     if pd.isna(date_val):
         return None
+
+    # Gestisce stringhe non-data conosciute che possono apparire legittimamente.
+    known_non_date_strings = ["GUASTO"]
+    if isinstance(date_val, str) and date_val.strip().upper() in known_non_date_strings:
+        return None
+
     if isinstance(date_val, datetime):
         return date_val
     if isinstance(date_val, pd.Timestamp):
@@ -161,10 +167,9 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                             val_found = top_left_cell.value
                             break
 
-                    # If the found value is an empty string, treat it as None.
-                    if isinstance(val_found, str) and not val_found.strip():
+                    # Se il valore trovato è vuoto (None, NaN, o stringa vuota), lo trattiamo come None.
+                    if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                         return None
-
                     return val_found
                 except Exception:
                     return None
@@ -199,10 +204,9 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                         # Not a merged cell
                         val_found = xls_sheet.cell_value(r, c)
 
-                    # If the found value is an empty string, treat it as None.
-                    if isinstance(val_found, str) and not val_found.strip():
+                    # Se il valore trovato è vuoto (None, NaN, o stringa vuota), lo trattiamo come None.
+                    if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                         return None
-
                     return val_found
                 except IndexError:
                     return None
