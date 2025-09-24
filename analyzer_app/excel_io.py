@@ -179,6 +179,10 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                         top_left_cell = ws_values.cell(row=merged_range.min_row, column=merged_range.min_col)
                         val_found = top_left_cell.value
                         break
+
+                # Aggiungi la normalizzazione cruciale per i valori vuoti
+                if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
+                    return None
                 return val_found
             get_value = get_xlsx_value
 
@@ -203,6 +207,9 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                             break
                 else:
                     val_found = xls_sheet.cell_value(r, c)
+
+                if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
+                    return None
                 return val_found
             get_value = get_xls_value
         else:
