@@ -105,7 +105,7 @@ def analyze_sheet_data(
     compilation_cells = {
         'analogico': {
             'ODC': (config.KEY_COMP_ANA_ODC_MANCANTE, config.SCHEDA_ANA_CELL_ODC),
-            'DATA': (config.KEY_COMP_ANA_DATA_COMP_MANCANTE, config.SCHEDA_ANA_CELL_DATA_COMPILAZIONE),
+            'CARD_DATE': (config.KEY_COMP_ANA_DATA_COMP_MANCANTE, config.SCHEDA_ANA_CELL_DATA_COMPILAZIONE),
             'PDL': (config.KEY_COMP_ANA_PDL_MANCANTE, config.SCHEDA_ANA_CELL_PDL),
             'ESECUTORE': (config.KEY_COMP_ANA_ESECUTORE_MANCANTE, config.SCHEDA_ANA_CELL_ESECUTORE),
             'SUPERVISORE': (config.KEY_COMP_ANA_SUPERVISORE_MANCANTE, config.SCHEDA_ANA_CELL_SUPERVISORE_ISAB),
@@ -113,7 +113,7 @@ def analyze_sheet_data(
         },
         'digitale': {
             'ODC': (config.KEY_COMP_DIG_ODC_MANCANTE, config.SCHEDA_DIG_CELL_ODC),
-            'DATA': (config.KEY_COMP_DIG_DATA_COMP_MANCANTE, config.SCHEDA_DIG_CELL_DATA_COMPILAZIONE),
+            'CARD_DATE': (config.KEY_COMP_DIG_DATA_COMP_MANCANTE, config.SCHEDA_DIG_CELL_DATA_COMPILAZIONE),
             'PDL': (config.KEY_COMP_DIG_PDL_MANCANTE, config.SCHEDA_DIG_CELL_PDL),
             'ESECUTORE': (config.KEY_COMP_DIG_ESECUTORE_MANCANTE, config.SCHEDA_DIG_CELL_ESECUTORE),
             'SUPERVISORE': (config.KEY_COMP_DIG_SUPERVISORE_MANCANTE, config.SCHEDA_DIG_CELL_SUPERVISORE_ISAB),

@@ -148,8 +148,19 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             wb = load_workbook(filename=file_path, data_only=True, read_only=True)
             ws = wb.active
             def get_xlsx_value(coord_str):
-                try: return ws[coord_str].value
-                except Exception: return None
+                try:
+                    # Prima controlla se la cella è in un range unito.
+                    # Se lo è, il valore si trova solo nella cella in alto a sinistra del range.
+                    cell = ws[coord_str]
+                    for merged_range in ws.merged_cell_ranges:
+                        if cell.coordinate in merged_range:
+                            # Trovato il range, prendi il valore dalla cella top-left
+                            top_left_cell = ws.cell(row=merged_range.min_row, column=merged_range.min_col)
+                            return top_left_cell.value
+                    # Se non è in nessun range unito, restituisce il valore della cella stessa.
+                    return cell.value
+                except Exception:
+                    return None
             get_value = get_xlsx_value
         except Exception as e:
             raise IOError(f"Errore apertura file .xlsx: {e}") from e
@@ -180,8 +191,8 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['odc'] = get_value(config.SCHEDA_DIG_CELL_ODC)
             raw_data['pdl'] = get_value(config.SCHEDA_DIG_CELL_PDL)
             raw_data['esecutore'] = get_value(config.SCHEDA_DIG_CELL_ESECUTORE)
-            raw_data['supervisore_isab'] = get_value(config.SCHEDA_DIG_CELL_SUPERVISORE_ISAB)
-            raw_data['contratto_coemi'] = get_value(config.SCHEDA_DIG_CELL_CONTRATTO_COEMI)
+            raw_data['supervisore'] = get_value(config.SCHEDA_DIG_CELL_SUPERVISORE_ISAB)
+            raw_data['contratto'] = get_value(config.SCHEDA_DIG_CELL_CONTRATTO_COEMI)
             raw_data['cert_ids'] = [get_value(c) for c in ["C18", "E18", "G18"]]
             raw_data['cert_expiries'] = [get_value(c) for c in ["C19", "E19", "G19"]]
             raw_data['cert_models'] = [get_value(c) for c in ["C13", "E13", "G13"]]
@@ -201,8 +212,8 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['odc'] = get_value(config.SCHEDA_ANA_CELL_ODC)
             raw_data['pdl'] = get_value(config.SCHEDA_ANA_CELL_PDL)
             raw_data['esecutore'] = get_value(config.SCHEDA_ANA_CELL_ESECUTORE)
-            raw_data['supervisore_isab'] = get_value(config.SCHEDA_ANA_CELL_SUPERVISORE_ISAB)
-            raw_data['contratto_coemi'] = get_value(config.SCHEDA_ANA_CELL_CONTRATTO_COEMI)
+            raw_data['supervisore'] = get_value(config.SCHEDA_ANA_CELL_SUPERVISORE_ISAB)
+            raw_data['contratto'] = get_value(config.SCHEDA_ANA_CELL_CONTRATTO_COEMI)
             raw_data['cert_ids'] = [get_value(c) for c in ["K43", "K44", "K45"]]
             raw_data['cert_expiries'] = [get_value(c) for c in ["M43", "M44", "M45"]]
             raw_data['cert_models'] = [get_value(c) for c in ["A43", "A44", "A45"]]
