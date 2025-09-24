@@ -34,6 +34,12 @@ def parse_date_robust(date_val, context_filename: str = "N/A") -> Optional[datet
     """
     if pd.isna(date_val):
         return None
+
+    # Gestisce stringhe non-data conosciute che possono apparire legittimamente.
+    known_non_date_strings = ["GUASTO"]
+    if isinstance(date_val, str) and date_val.strip().upper() in known_non_date_strings:
+        return None
+
     if isinstance(date_val, datetime):
         return date_val
     if isinstance(date_val, pd.Timestamp):
