@@ -78,6 +78,16 @@ def analyze_sheet_data(
 
     card_date = parse_date_robust(raw_data.get('card_date'), base_filename)
 
+    if not file_type:
+        add_error(config.KEY_TIPO_SCHEDA_SCONOSCIUTO, cell="E2")
+        return InstrumentSheet(
+            file_path=file_path, base_filename=base_filename,
+            status="Tipo scheda non riconosciuto",
+            is_valid=False,
+            human_errors=human_errors,
+            compilation_data=CompilationData(file_path=file_path, base_filename=base_filename)
+        )
+
     sp_code_cell = config.SCHEDA_ANA_CELL_TIPOLOGIA_STRUM if file_type == 'analogico' else config.SCHEDA_DIG_CELL_TIPOLOGIA_STRUM
     sp_code_raw_val = raw_data.get('sp_code')
     sp_code_normalizzato_letto = normalize_sp_code(sp_code_raw_val)
