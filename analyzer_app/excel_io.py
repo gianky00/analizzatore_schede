@@ -140,10 +140,6 @@ def leggi_registro_strumenti() -> Optional[List[CalibrationStandard]]:
         return None
 
 def read_instrument_sheet_raw_data(file_path: str) -> dict:
-    """
-    Legge i valori grezzi da un file di scheda strumento, gestendo sia .xls che .xlsx.
-    Usa openpyxl per .xlsx (veloce) e pandas+xlrd per .xls (compatibilità).
-    """
     base_filename = os.path.basename(file_path)
     file_ext = os.path.splitext(base_filename)[1].lower()
     raw_data = {'file_path': file_path, 'base_filename': base_filename}
@@ -154,33 +150,27 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
 
     try:
         if file_ext == '.xlsx':
-            # Carica i workbook. read_only=False per accedere a merged_cells.
             wb_values = load_workbook(filename=file_path, data_only=True, read_only=False)
             ws_values = wb_values.active
             wb_formulas = load_workbook(filename=file_path, data_only=False, read_only=False)
             ws_formulas = wb_formulas.active
 
             def get_xlsx_value(coord_str):
-                # Controlla la formula dalla vista formule
                 cell_formula = ws_formulas[coord_str]
                 if cell_formula.data_type == 'f':
                     formula_str = str(cell_formula.value).strip().upper()
-                    # Generalizza il controllo per diversi errori di formula comuni
                     if formula_str.startswith('=') and any(err in formula_str for err in ['NA()', '#N/A', '#VALUE!', '#REF!']):
                         return "#FORMULA_ERROR#"
 
-                # Altrimenti, ottieni il valore calcolato dalla vista valori
                 cell_value = ws_values[coord_str]
                 val_found = cell_value.value
 
-                # Gestisci le celle unite usando l'attributo (ora disponibile)
                 for merged_range in ws_values.merged_cells:
                     if cell_value.coordinate in merged_range:
                         top_left_cell = ws_values.cell(row=merged_range.min_row, column=merged_range.min_col)
                         val_found = top_left_cell.value
                         break
 
-                # Aggiungi la normalizzazione cruciale per i valori vuoti
                 if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                     return None
                 return val_found
@@ -215,7 +205,6 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
         else:
             raise ValueError(f"Formato file non supportato: {file_ext}")
 
-        # --- Blocco di lettura dati ---
         model_indicator_e2 = get_value('E2')
         model_indicator_e2_str = str(model_indicator_e2).strip().upper() if model_indicator_e2 else ""
 
@@ -256,7 +245,6 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['cert_ranges'] = [get_value(c) for c in ["G43", "G44", "G45"]]
 
     finally:
-        # Chiudi i workbook se sono stati aperti
         if wb_values: wb_values.close()
         if wb_formulas: wb_formulas.close()
 
@@ -264,10 +252,6 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
 
 
 def save_configuration(new_config: Dict[str, str]) -> bool:
-    """
-    Salva i nuovi percorsi di configurazione nel file parametri.xlsm.
-    Restituisce True in caso di successo, False altrimenti.
-    """
     try:
         wb = load_workbook(config.PATH_FILE_PARAMETRI)
         ws = wb[config.NOME_FOGLIO_PARAMETRI]
@@ -293,17 +277,13 @@ def save_configuration(new_config: Dict[str, str]) -> bool:
 
 
 def write_cell(file_path: str, cell_address: str, value) -> bool:
-    """
-    Scrive un valore in una cella specifica di un file .xlsx.
-    ATTENZIONE: Non supporta la scrittura di file .xls per preservare la formattazione.
-    """
     if not file_path.lower().endswith('.xlsx'):
         logger.error(f"La scrittura è supportata solo per i file .xlsx. Impossibile modificare {os.path.basename(file_path)}")
         return False
 
     try:
         wb = load_workbook(file_path)
-        ws = wb.active  # Assumiamo di lavorare sempre sul foglio attivo
+        ws = wb.active
 
         ws[cell_address] = value
 
