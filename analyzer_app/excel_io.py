@@ -4,8 +4,10 @@ import re
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
+from itertools import product
 
 import pandas as pd
+import xlrd
 from pandas.tseries.offsets import DateOffset
 from openpyxl import load_workbook
 
@@ -167,15 +169,38 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
 
     elif file_ext == '.xls':
         try:
-            df = pd.read_excel(file_path, header=None, sheet_name=0, engine='xlrd', dtype=str)
+            xls_workbook = xlrd.open_workbook(file_path)
+            xls_sheet = xls_workbook.sheet_by_index(0)
+
+            # Crea una mappa delle celle unite per una ricerca efficiente usando itertools.product.
+            # Ogni cella in un range unito (tranne quella in alto a sinistra)
+            # mapperà alle coordinate della cella in alto a sinistra.
+            merged_cells_map = {}
+            for rlo, rhi, clo, chi in xls_sheet.merged_cells:
+                top_left_coords = (rlo, clo)
+                # Itera su tutte le coordinate nel range della cella unita
+                all_cells_in_range = product(range(rlo, rhi), range(clo, chi))
+                for cell_coords in all_cells_in_range:
+                    if cell_coords != top_left_coords:
+                        merged_cells_map[cell_coords] = top_left_coords
+
             def get_xls_value(coord_str):
                 try:
-                    indices = excel_coord_to_indices(coord_str)
-                    return df.iloc[indices[0], indices[1]]
-                except IndexError: return None
+                    r, c = excel_coord_to_indices(coord_str)
+
+                    # Se la cella richiesta è parte di un range unito,
+                    # ottieni le coordinate della cella "master" (top-left)
+                    if (r, c) in merged_cells_map:
+                        r, c = merged_cells_map[(r, c)]
+
+                    # Restituisce il valore grezzo dalla cella.
+                    # Le funzioni a valle (es. parse_date_robust) gestiranno la conversione.
+                    return xls_sheet.cell_value(r, c)
+                except IndexError:
+                    return None # La coordinata è fuori dai limiti del foglio
             get_value = get_xls_value
         except Exception as e:
-            raise IOError(f"Errore apertura file .xls: {e}") from e
+            raise IOError(f"Errore apertura file .xls con xlrd: {e}") from e
     else:
         raise ValueError(f"Formato file non supportato: {file_ext}")
 
