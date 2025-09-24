@@ -4,10 +4,10 @@ import re
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
-from itertools import product
 
 import pandas as pd
 import xlrd
+from itertools import product
 from pandas.tseries.offsets import DateOffset
 from openpyxl import load_workbook
 
@@ -172,32 +172,32 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             xls_workbook = xlrd.open_workbook(file_path)
             xls_sheet = xls_workbook.sheet_by_index(0)
 
-            # Crea una mappa delle celle unite per una ricerca efficiente usando itertools.product.
-            # Ogni cella in un range unito (tranne quella in alto a sinistra)
-            # mapperà alle coordinate della cella in alto a sinistra.
-            merged_cells_map = {}
+            # Crea una mappa da una cella al range unito a cui appartiene.
+            cell_to_merged_range_map = {}
             for rlo, rhi, clo, chi in xls_sheet.merged_cells:
-                top_left_coords = (rlo, clo)
-                # Itera su tutte le coordinate nel range della cella unita
-                all_cells_in_range = product(range(rlo, rhi), range(clo, chi))
-                for cell_coords in all_cells_in_range:
-                    if cell_coords != top_left_coords:
-                        merged_cells_map[cell_coords] = top_left_coords
+                for r, c in product(range(rlo, rhi), range(clo, chi)):
+                    cell_to_merged_range_map[(r, c)] = (rlo, rhi, clo, chi)
 
             def get_xls_value(coord_str):
                 try:
                     r, c = excel_coord_to_indices(coord_str)
 
-                    # Se la cella richiesta è parte di un range unito,
-                    # ottieni le coordinate della cella "master" (top-left)
-                    if (r, c) in merged_cells_map:
-                        r, c = merged_cells_map[(r, c)]
-
-                    # Restituisce il valore grezzo dalla cella.
-                    # Le funzioni a valle (es. parse_date_robust) gestiranno la conversione.
-                    return xls_sheet.cell_value(r, c)
+                    # Se la cella è in un range unito...
+                    if (r, c) in cell_to_merged_range_map:
+                        rlo, rhi, clo, chi = cell_to_merged_range_map[(r, c)]
+                        # ...scansiona tutte le celle in quel range per un valore.
+                        for row_idx, col_idx in product(range(rlo, rhi), range(clo, chi)):
+                            cell_val = xls_sheet.cell_value(row_idx, col_idx)
+                            # Restituisce il primo valore non vuoto trovato.
+                            if cell_val is not None and str(cell_val).strip() != '':
+                                return cell_val
+                        # Se tutte le celle nel range unito sono vuote, restituisce None.
+                        return None
+                    else:
+                        # Non è una cella unita, restituisce semplicemente il suo valore.
+                        return xls_sheet.cell_value(r, c)
                 except IndexError:
-                    return None # La coordinata è fuori dai limiti del foglio
+                    return None
             get_value = get_xls_value
         except Exception as e:
             raise IOError(f"Errore apertura file .xls con xlrd: {e}") from e
