@@ -143,16 +143,73 @@ RANGE_0_100_NORMALIZZATO="0-100";RANGE_4_20_NORMALIZZATO="4-20";UM_MA_NORMALIZZA
 
 # --- Mappa Messaggi di Errore Umani ---
 human_error_messages_map_descriptive = {
-    KEY_TIPO_SCHEDA_SCONOSCIUTO: "Tipo scheda non riconosciuto: verificare il valore in cella E2.",
-    KEY_SP_VUOTO: f"Codice SP (Tipologia Strumento da N9/N10) mancante o illeggibile.", KEY_L9_VUOTO: f"Modello Strumento (L9, solo per analogici) mancante o illeggibile.", KEY_L9_SKINPOINT_INCOMPLETO: f"Modello L9 (analogico) 'SKIN POINT' incompleto (manca tipo K, J, ecc.).", KEY_CELL_RANGE_UM_NON_LEGGIBILE: f"Impossibile leggere una o più celle necessarie per Range/UM (A9,C9,D9,F9,D12,F12 per analogici; D22 per digitali).",
-    KEY_ERR_ANA_TEMP_CONV_C9F9_UM_DIVERSE: f"Temp./Convertitore (ANA): Unità Ingresso ({SCHEDA_ANA_CELL_UM_INGRESSO}) diversa da Unità DCS ({SCHEDA_ANA_CELL_UM_DCS}). Devono coincidere.", KEY_ERR_ANA_TEMP_CONV_F12_UM_NON_MA: f"Temp./Convertitore (ANA): Unità Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) deve essere '{UM_MA_NORMALIZZATA}'.", KEY_ERR_ANA_TEMP_CONV_A9D9_RANGE_DIVERSI: f"Temp./Convertitore (ANA): Range Ingresso ({SCHEDA_ANA_CELL_RANGE_INGRESSO}) diverso da Range DCS ({SCHEDA_ANA_CELL_RANGE_DCS}). Devono coincidere.", KEY_ERR_ANA_TEMP_CONV_D12_RANGE_NON_4_20: f"Temp./Convertitore (ANA): Range Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) deve essere '{RANGE_4_20_NORMALIZZATO}'.", KEY_ERR_ANA_TEMP_NOCONV_UM_NON_COINCIDENTI: f"Temp./NO-Convertitore (RTD, TC) (ANA): Unità Ingresso ({SCHEDA_ANA_CELL_UM_INGRESSO}), DCS ({SCHEDA_ANA_CELL_UM_DCS}) e Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) devono coincidere.", KEY_ERR_ANA_TEMP_NOCONV_RANGE_NON_COINCIDENTI: f"Temp./NO-Convertitore (RTD, TC) (ANA): Range Ingresso ({SCHEDA_ANA_CELL_RANGE_INGRESSO}), DCS ({SCHEDA_ANA_CELL_RANGE_DCS}) e Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) devono coincidere.",
-    KEY_ERR_ANA_LIVELLO_DP_C9_UM_NON_PRESSIONE: f"Livello/DP (ANA): Unità Ingresso ({SCHEDA_ANA_CELL_UM_INGRESSO}) deve essere un'unità di misura di pressione valida (es. mmH2O, bar).", KEY_ERR_ANA_LIVELLO_DP_D9_RANGE_NON_0_100: f"Livello/DP (ANA): Range DCS ({SCHEDA_ANA_CELL_RANGE_DCS}) deve essere '{RANGE_0_100_NORMALIZZATO}'.", KEY_ERR_ANA_LIVELLO_DP_F9_UM_NON_PERCENTO: f"Livello/DP (ANA): Unità DCS ({SCHEDA_ANA_CELL_UM_DCS}) deve essere '{UM_PERCENTO_NORMALIZZATA}'.", KEY_ERR_ANA_LIVELLO_DP_D12_RANGE_NON_4_20: f"Livello/DP (ANA): Range Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) deve essere '{RANGE_4_20_NORMALIZZATO}'.", KEY_ERR_ANA_LIVELLO_DP_F12_UM_NON_MA: f"Livello/DP (ANA): Unità Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) deve essere '{UM_MA_NORMALIZZATA}'.", KEY_ERR_ANA_LIVELLO_TORS_C9_UM_INVALIDA: f"Livello/BarraTors. (ANA): Unità Ingresso ({SCHEDA_ANA_CELL_UM_INGRESSO}) deve essere '{UM_MMH2O_NORMALIZZATA}' o '{UM_MM_NORMALIZZATA}'.", KEY_ERR_ANA_LIVELLO_TORS_D9_RANGE_NON_0_100: f"Livello/BarraTors. (ANA): Range DCS ({SCHEDA_ANA_CELL_RANGE_DCS}) deve essere '{RANGE_0_100_NORMALIZZATO}'.", KEY_ERR_ANA_LIVELLO_TORS_F9_UM_NON_PERCENTO: f"Livello/BarraTors. (ANA): Unità DCS ({SCHEDA_ANA_CELL_UM_DCS}) deve essere '{UM_PERCENTO_NORMALIZZATA}'.", KEY_ERR_ANA_LIVELLO_TORS_ELETTR_D12_RANGE_NON_4_20: f"Livello/BarraTors.Elettronico (ANA): Range Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) deve essere '{RANGE_4_20_NORMALIZZATO}'.", KEY_ERR_ANA_LIVELLO_TORS_ELETTR_F12_UM_NON_MA: f"Livello/BarraTors.Elettronico (ANA): Unità Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) deve essere '{UM_MA_NORMALIZZATA}'.", KEY_ERR_ANA_LIVELLO_TORS_LOCALE_D12_RANGE_NON_VUOTO: f"Livello/BarraTors.Locale (ANA): Range Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) deve essere vuoto (o '{UM_PSI_NORMALIZZATA}' se pneumatico).", KEY_ERR_ANA_LIVELLO_TORS_LOCALE_F12_UM_NON_VUOTA: f"Livello/BarraTors.Locale (ANA): Unità Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) deve essere vuota (o '{UM_PSI_NORMALIZZATA}' se pneumatico).", KEY_ERR_ANA_LIVELLO_RADARULTR_D9_RANGE_NON_0_100: f"Livello/Radar-Ultrasuoni (ANA): Range DCS ({SCHEDA_ANA_CELL_RANGE_DCS}) deve essere '{RANGE_0_100_NORMALIZZATO}'.", KEY_ERR_ANA_LIVELLO_RADARULTR_F9_UM_NON_PERCENTO: f"Livello/Radar-Ultrasuoni (ANA): Unità DCS ({SCHEDA_ANA_CELL_UM_DCS}) deve essere '{UM_PERCENTO_NORMALIZZATA}'.", KEY_ERR_ANA_LIVELLO_RADARULTR_D12_RANGE_NON_4_20: f"Livello/Radar-Ultrasuoni (ANA): Range Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) deve essere '{RANGE_4_20_NORMALIZZATO}'.", KEY_ERR_ANA_LIVELLO_RADARULTR_F12_UM_NON_MA: f"Livello/Radar-Ultrasuoni (ANA): Unità Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) deve essere '{UM_MA_NORMALIZZATA}'.",
-    KEY_ERR_ANA_PRESS_DP_TX_C9F9_UM_DIVERSE: f"Pressione/DP-TX-Capillare (ANA): Unità Ingresso ({SCHEDA_ANA_CELL_UM_INGRESSO}) e DCS ({SCHEDA_ANA_CELL_UM_DCS}) devono coincidere.", KEY_ERR_ANA_PRESS_DP_TX_F12_UM_NON_MA: f"Pressione/DP-TX-Capillare (ANA): Unità Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) deve essere '{UM_MA_NORMALIZZATA}'.", KEY_ERR_ANA_PRESS_DP_TX_A9D9_RANGE_DIVERSI: f"Pressione/DP-TX-Capillare (ANA): Range Ingresso ({SCHEDA_ANA_CELL_RANGE_INGRESSO}) e DCS ({SCHEDA_ANA_CELL_RANGE_DCS}) devono coincidere.", KEY_ERR_ANA_PRESS_DP_TX_D12_RANGE_NON_4_20: f"Pressione/DP-TX-Capillare (ANA): Range Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) deve essere '{RANGE_4_20_NORMALIZZATO}'.",
-    KEY_ERR_ANA_PORTATA_DP_D12_RANGE_NON_4_20: f"Portata/DP (ANA): Range Uscita ({SCHEDA_ANA_CELL_RANGE_USCITA}) deve essere '{RANGE_4_20_NORMALIZZATO}'.", KEY_ERR_ANA_PORTATA_DP_F12_UM_NON_MA: f"Portata/DP (ANA): Unità Uscita ({SCHEDA_ANA_CELL_UM_USCITA}) deve essere '{UM_MA_NORMALIZZATA}'.",
-    KEY_ERR_DIG_PRESS_D22_UM_NON_PRESSIONE: f"Digitale/Pressione: Unità Processo ({SCHEDA_DIG_CELL_RANGE_UM_PROCESSO}) non è UM di pressione valida.", KEY_ERR_DIG_LIVELLO_D22_UM_NON_PERCENTO: f"Digitale/Livello: Unità Processo ({SCHEDA_DIG_CELL_RANGE_UM_PROCESSO}) deve essere '{UM_PERCENTO_NORMALIZZATA}'.",
-    KEY_COMP_ANA_ODC_MANCANTE: f"Scheda Analogica: ODC ({SCHEDA_ANA_CELL_ODC}) mancante.", KEY_COMP_ANA_DATA_COMP_MANCANTE: f"Scheda Analogica: Data Compilazione ({SCHEDA_ANA_CELL_DATA_COMPILAZIONE}) mancante.", KEY_COMP_ANA_PDL_MANCANTE: f"Scheda Analogica: Numero PDL ({SCHEDA_ANA_CELL_PDL}) mancante.", KEY_COMP_ANA_ESECUTORE_MANCANTE: f"Scheda Analogica: Esecutore ({SCHEDA_ANA_CELL_ESECUTORE}) mancante.", KEY_COMP_ANA_SUPERVISORE_MANCANTE: f"Scheda Analogica: Supervisore ISAB ({SCHEDA_ANA_CELL_SUPERVISORE_ISAB}) mancante.", KEY_COMP_ANA_CONTRATTO_MANCANTE: f"Scheda Analogica: Contratto Coemi ({SCHEDA_ANA_CELL_CONTRATTO_COEMI}) mancante.", KEY_COMP_ANA_CONTRATTO_DIVERSO: f"Scheda Analogica: Contratto Coemi ({SCHEDA_ANA_CELL_CONTRATTO_COEMI}) diverso da '{VALORE_ATTESO_CONTRATTO_COEMI}' o '{VALORE_ATTESO_CONTRATTO_COEMI_VARIANTE_NUMERICA}'.",
-    KEY_COMP_DIG_ODC_MANCANTE: f"Scheda Digitale: ODC ({SCHEDA_DIG_CELL_ODC}) mancante.", KEY_COMP_DIG_DATA_COMP_MANCANTE: f"Scheda Digitale: Data Compilazione ({SCHEDA_DIG_CELL_DATA_COMPILAZIONE}) mancante.", KEY_COMP_DIG_PDL_MANCANTE: f"Scheda Digitale: Numero PDL ({SCHEDA_DIG_CELL_PDL}) mancante.", KEY_COMP_DIG_ESECUTORE_MANCANTE: f"Scheda Digitale: Esecutore ({SCHEDA_DIG_CELL_ESECUTORE}) mancante.", KEY_COMP_DIG_SUPERVISORE_MANCANTE: f"Scheda Digitale: Supervisore ISAB ({SCHEDA_DIG_CELL_SUPERVISORE_ISAB}) mancante.", KEY_COMP_DIG_CONTRATTO_MANCANTE: f"Scheda Digitale: Contratto Coemi ({SCHEDA_DIG_CELL_CONTRATTO_COEMI}) mancante.", KEY_COMP_DIG_CONTRATTO_DIVERSO: f"Scheda Digitale: Contratto Coemi ({SCHEDA_DIG_CELL_CONTRATTO_COEMI}) diverso da '{VALORE_ATTESO_CONTRATTO_COEMI}' o '{VALORE_ATTESO_CONTRATTO_COEMI_VARIANTE_NUMERICA}'.", KEY_COMP_CAMPI_MANCANTI_NON_LEGGIBILI: "Impossibile leggere uno o più campi per la verifica di completezza (ODC, Data, PDL, etc.).",
-    KEY_FORMULA_ERROR: "La cella contiene un errore di formula Excel (es. #N/A, #VALORE!).",
+    # Messaggi generici
+    KEY_TIPO_SCHEDA_SCONOSCIUTO: "Tipo scheda non riconosciuto.",
+    KEY_FORMULA_ERROR: "La cella contiene un errore di formula (es. #N/A, #VALORE!).",
+    KEY_CELL_RANGE_UM_NON_LEGGIBILE: "Impossibile leggere una o più celle di Range/UM.",
+
+    # Campi anagrafici mancanti (comuni a digitali e analogiche)
+    KEY_COMP_ANA_ODC_MANCANTE: "ODC mancante.",
+    KEY_COMP_ANA_DATA_COMP_MANCANTE: "Data compilazione mancante.",
+    KEY_COMP_ANA_PDL_MANCANTE: "Numero PDL mancante.",
+    KEY_COMP_ANA_ESECUTORE_MANCANTE: "Esecutore mancante.",
+    KEY_COMP_ANA_SUPERVISORE_MANCANTE: "Supervisore ISAB mancante.",
+    KEY_COMP_ANA_CONTRATTO_MANCANTE: "Contratto Coemi mancante.",
+    KEY_COMP_DIG_ODC_MANCANTE: "ODC mancante.",
+    KEY_COMP_DIG_DATA_COMP_MANCANTE: "Data compilazione mancante.",
+    KEY_COMP_DIG_PDL_MANCANTE: "Numero PDL mancante.",
+    KEY_COMP_DIG_ESECUTORE_MANCANTE: "Esecutore mancante.",
+    KEY_COMP_DIG_SUPERVISORE_MANCANTE: "Supervisore ISAB mancante.",
+    KEY_COMP_DIG_CONTRATTO_MANCANTE: "Contratto Coemi mancante.",
+
+    # Campi anagrafici con valori errati
+    KEY_COMP_ANA_CONTRATTO_DIVERSO: f"Contratto Coemi non valido. Valore atteso: '{VALORE_ATTESO_CONTRATTO_COEMI}'.",
+    KEY_COMP_DIG_CONTRATTO_DIVERSO: f"Contratto Coemi non valido. Valore atteso: '{VALORE_ATTESO_CONTRATTO_COEMI}'.",
+
+    # Errori specifici schede analogiche
+    KEY_SP_VUOTO: "Codice SP (Tipologia Strumento) mancante o illeggibile.",
+    KEY_L9_VUOTO: "Modello Strumento mancante o illeggibile.",
+    KEY_L9_SKINPOINT_INCOMPLETO: "Modello Strumento 'SKIN POINT' incompleto (manca tipo K, J, ecc.).",
+
+    # Errori di coerenza (schede analogiche)
+    KEY_ERR_ANA_TEMP_CONV_C9F9_UM_DIVERSE: "Temp./Convertitore: Unità Ingresso e Unità DCS devono coincidere.",
+    KEY_ERR_ANA_TEMP_CONV_F12_UM_NON_MA: f"Temp./Convertitore: Unità Uscita deve essere '{UM_MA_NORMALIZZATA}'.",
+    KEY_ERR_ANA_TEMP_CONV_A9D9_RANGE_DIVERSI: "Temp./Convertitore: Range Ingresso e Range DCS devono coincidere.",
+    KEY_ERR_ANA_TEMP_CONV_D12_RANGE_NON_4_20: f"Temp./Convertitore: Range Uscita deve essere '{RANGE_4_20_NORMALIZZATO}'.",
+    KEY_ERR_ANA_TEMP_NOCONV_UM_NON_COINCIDENTI: "Temp./No-Conv: Unità Ingresso, DCS e Uscita devono coincidere.",
+    KEY_ERR_ANA_TEMP_NOCONV_RANGE_NON_COINCIDENTI: "Temp./No-Conv: Range Ingresso, DCS e Uscita devono coincidere.",
+
+    KEY_ERR_ANA_LIVELLO_DP_C9_UM_NON_PRESSIONE: "Livello/DP: Unità Ingresso deve essere un'unità di pressione valida.",
+    KEY_ERR_ANA_LIVELLO_DP_D9_RANGE_NON_0_100: f"Livello/DP: Range DCS deve essere '{RANGE_0_100_NORMALIZZATO}'.",
+    KEY_ERR_ANA_LIVELLO_DP_F9_UM_NON_PERCENTO: f"Livello/DP: Unità DCS deve essere '{UM_PERCENTO_NORMALIZZATA}'.",
+    KEY_ERR_ANA_LIVELLO_DP_D12_RANGE_NON_4_20: f"Livello/DP: Range Uscita deve essere '{RANGE_4_20_NORMALIZZATO}'.",
+    KEY_ERR_ANA_LIVELLO_DP_F12_UM_NON_MA: f"Livello/DP: Unità Uscita deve essere '{UM_MA_NORMALIZZATA}'.",
+
+    KEY_ERR_ANA_LIVELLO_TORS_C9_UM_INVALIDA: f"Livello/BarraTors.: Unità Ingresso deve essere '{UM_MMH2O_NORMALIZZATA}' o '{UM_MM_NORMALIZZATA}'.",
+    KEY_ERR_ANA_LIVELLO_TORS_D9_RANGE_NON_0_100: f"Livello/BarraTors.: Range DCS deve essere '{RANGE_0_100_NORMALIZZATO}'.",
+    KEY_ERR_ANA_LIVELLO_TORS_F9_UM_NON_PERCENTO: f"Livello/BarraTors.: Unità DCS deve essere '{UM_PERCENTO_NORMALIZZATA}'.",
+    KEY_ERR_ANA_LIVELLO_TORS_ELETTR_D12_RANGE_NON_4_20: f"Livello/BarraTors.Elettr.: Range Uscita deve essere '{RANGE_4_20_NORMALIZZATO}'.",
+    KEY_ERR_ANA_LIVELLO_TORS_ELETTR_F12_UM_NON_MA: f"Livello/BarraTors.Elettr.: Unità Uscita deve essere '{UM_MA_NORMALIZZATA}'.",
+
+    KEY_ERR_ANA_LIVELLO_TORS_LOCALE_D12_RANGE_NON_VUOTO: "Livello/BarraTors.Locale: Range Uscita deve essere vuoto.",
+    KEY_ERR_ANA_LIVELLO_TORS_LOCALE_F12_UM_NON_VUOTA: "Livello/BarraTors.Locale: Unità Uscita deve essere vuota.",
+
+    KEY_ERR_ANA_LIVELLO_RADARULTR_D9_RANGE_NON_0_100: f"Livello/Radar-Ultrasuoni: Range DCS deve essere '{RANGE_0_100_NORMALIZZATO}'.",
+    KEY_ERR_ANA_LIVELLO_RADARULTR_F9_UM_NON_PERCENTO: f"Livello/Radar-Ultrasuoni: Unità DCS deve essere '{UM_PERCENTO_NORMALIZZATA}'.",
+    KEY_ERR_ANA_LIVELLO_RADARULTR_D12_RANGE_NON_4_20: f"Livello/Radar-Ultrasuoni: Range Uscita deve essere '{RANGE_4_20_NORMALIZZATO}'.",
+    KEY_ERR_ANA_LIVELLO_RADARULTR_F12_UM_NON_MA: f"Livello/Radar-Ultrasuoni: Unità Uscita deve essere '{UM_MA_NORMALIZZATA}'.",
+
+    KEY_ERR_ANA_PRESS_DP_TX_C9F9_UM_DIVERSE: "Pressione/DP-TX: Unità Ingresso e DCS devono coincidere.",
+    KEY_ERR_ANA_PRESS_DP_TX_F12_UM_NON_MA: f"Pressione/DP-TX: Unità Uscita deve essere '{UM_MA_NORMALIZZATA}'.",
+    KEY_ERR_ANA_PRESS_DP_TX_A9D9_RANGE_DIVERSI: "Pressione/DP-TX: Range Ingresso e DCS devono coincidere.",
+    KEY_ERR_ANA_PRESS_DP_TX_D12_RANGE_NON_4_20: f"Pressione/DP-TX: Range Uscita deve essere '{RANGE_4_20_NORMALIZZATO}'.",
+
+    KEY_ERR_ANA_PORTATA_DP_D12_RANGE_NON_4_20: f"Portata/DP: Range Uscita deve essere '{RANGE_4_20_NORMALIZZATO}'.",
+    KEY_ERR_ANA_PORTATA_DP_F12_UM_NON_MA: f"Portata/DP: Unità Uscita deve essere '{UM_MA_NORMALIZZATA}'.",
+
+    # Errori specifici schede digitali
+    KEY_ERR_DIG_PRESS_D22_UM_NON_PRESSIONE: "Unità di Processo non è un'unità di pressione valida.",
+    KEY_ERR_DIG_LIVELLO_D22_UM_NON_PERCENTO: f"Unità di Processo deve essere '{UM_PERCENTO_NORMALIZZATA}'.",
 }
 
 # --- Funzioni di Utilità e Indici Derivati ---
