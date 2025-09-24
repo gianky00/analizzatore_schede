@@ -38,9 +38,20 @@ def normalize_range_string(range_str_raw) -> str:
     return re.sub(r'\s+','',norm_str)
 
 def is_cell_value_empty(cell_value) -> bool:
-    if pd.isna(cell_value): return True
-    if isinstance(cell_value,str) and not cell_value.strip(): return True
-    return isinstance(cell_value,str) and cell_value.strip().lower()=="nan"
+    # Controlla esplicitamente per None, che è il caso più comune per celle vuote.
+    if cell_value is None:
+        return True
+    # pd.isna gestisce altri tipi di null/NaN, come quelli di numpy.
+    if pd.isna(cell_value):
+        return True
+    # Converte in stringa per gestire vari tipi di dati e controlla se è vuota dopo il trim.
+    # Questo cattura stringhe vuote e stringhe contenenti solo spazi bianchi.
+    if isinstance(cell_value, str) and not cell_value.strip():
+        return True
+    # Gestisce il caso in cui il valore potrebbe essere la stringa letterale "nan"
+    if str(cell_value).strip().lower() == "nan":
+        return True
+    return False
 
 def is_um_pressione_valida(um: str) -> bool:
     return um in config.LISTA_UM_PRESSIONE_RICONOSCIUTE
