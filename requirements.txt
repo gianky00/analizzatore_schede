@@ -1,0 +1,7 @@
+# Analizzatore Schede Taratura v8.0 - Dipendenze
+pandas>=2.0.0
+openpyxl>=3.1.0
+xlrd>=2.0.0
+pyperclip>=1.8.0
+python-docx>=0.8.0
+
