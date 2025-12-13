@@ -1,24 +1,26 @@
 # analyzer_app/excel_io.py
+"""
+Modulo per lettura/scrittura file Excel.
+"""
 import os
 import re
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict
+from itertools import product
 
 import pandas as pd
 import xlrd
-from itertools import product
 from pandas.tseries.offsets import DateOffset
 from openpyxl import load_workbook
 
 from . import config
-from .data_models import CalibrationStandard
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
-def excel_coord_to_indices(coord_str: str) -> tuple[int, int]:
-    """Converte una coordinata Excel (es. "B3") in indici 0-based (riga, colonna)."""
+
+def excel_coord_to_indices(coord_str: str) -> tuple:
+    """Converte una coordinata Excel (es. 'B3') in indici 0-based (riga, colonna)."""
     match = re.match(r"([A-Z]+)([0-9]+)", coord_str.upper())
     if not match:
         raise ValueError(f"Coordinata Excel non valida: {coord_str}")
@@ -28,6 +30,7 @@ def excel_coord_to_indices(coord_str: str) -> tuple[int, int]:
         col_idx += (ord(char_v) - ord('A') + 1) * (26 ** char_i)
     return int(row_s) - 1, col_idx - 1
 
+
 def parse_date_robust(date_val, context_filename: str = "N/A") -> Optional[datetime]:
     """
     Tenta di parsare una data da vari formati (stringa, timestamp, numero seriale Excel).
@@ -35,7 +38,7 @@ def parse_date_robust(date_val, context_filename: str = "N/A") -> Optional[datet
     if pd.isna(date_val):
         return None
 
-    # Gestisce stringhe non-data conosciute che possono apparire legittimamente.
+    # Gestisce stringhe non-data conosciute
     known_non_date_strings = ["GUASTO"]
     if isinstance(date_val, str) and date_val.strip().upper() in known_non_date_strings:
         return None
@@ -67,23 +70,22 @@ def parse_date_robust(date_val, context_filename: str = "N/A") -> Optional[datet
     except (ValueError, TypeError, OverflowError) as e_num:
         logger.debug(f"File: {context_filename} - Parse numerico Excel fallito per '{s_date_str}': {e_num}")
 
-    logger.warning(f"File: {context_filename} - Data '{s_date_str}' (raw: '{date_val}') non riconosciuta.")
+    logger.warning(f"File: {context_filename} - Data '{s_date_str}' non riconosciuta.")
     return None
 
-def leggi_registro_strumenti() -> Optional[List[CalibrationStandard]]:
-    # ... (Questa funzione rimane la stessa)
+
+def leggi_registro_strumenti() -> Optional[List[config.CalibrationStandard]]:
+    """Legge il registro strumenti campione."""
     if not config.FILE_REGISTRO_STRUMENTI:
-        logger.error("Percorso FILE_REGISTRO_STRUMENTI non configurato. Impossibile leggere il registro.")
+        logger.error("Percorso FILE_REGISTRO_STRUMENTI non configurato.")
         return None
 
-    logger.info(f"Tentativo lettura registro strumenti: {config.FILE_REGISTRO_STRUMENTI}")
+    logger.info(f"Lettura registro strumenti: {config.FILE_REGISTRO_STRUMENTI}")
     if not os.path.exists(config.FILE_REGISTRO_STRUMENTI):
         logger.error(f"File registro strumenti NON TROVATO: {config.FILE_REGISTRO_STRUMENTI}")
         return None
 
     try:
-        # The order of columns in usecols must match the order in names.
-        # We must sort the columns by index to ensure pandas reads them in the correct order.
         cols_to_read = {
             'modello_strumento_campione': config.REGISTRO_COL_IDX_MODELLO_STRUM_CAMPIONE,
             'id_cert_campione': config.REGISTRO_COL_IDX_ID_CERT_CAMPIONE,
@@ -111,18 +113,21 @@ def leggi_registro_strumenti() -> Optional[List[CalibrationStandard]]:
         strumenti_campione = []
         for _, row in df_registro.iterrows():
             id_cert_strum = str(row['id_cert_campione']).strip()
-            if not id_cert_strum: continue
+            if not id_cert_strum:
+                continue
 
             scadenza_val = row['scadenza_cert_campione']
             scadenza_dt = parse_date_robust(scadenza_val, config.FILE_REGISTRO_STRUMENTI)
 
             data_emissione_dt = None
             if scadenza_dt:
-                try: data_emissione_dt = scadenza_dt - DateOffset(years=1)
-                except Exception: data_emissione_dt = scadenza_dt - timedelta(days=365)
+                try:
+                    data_emissione_dt = scadenza_dt - DateOffset(years=1)
+                except Exception:
+                    data_emissione_dt = scadenza_dt - timedelta(days=365)
 
             strumenti_campione.append(
-                CalibrationStandard(
+                config.CalibrationStandard(
                     modello_strumento=str(row['modello_strumento_campione']).strip().upper() if not pd.isna(row['modello_strumento_campione']) else "N/D",
                     id_certificato=id_cert_strum,
                     range=str(row['range_campione']).strip() if not pd.isna(row['range_campione']) else "N/D",
@@ -132,14 +137,14 @@ def leggi_registro_strumenti() -> Optional[List[CalibrationStandard]]:
                 )
             )
         logger.info(f"Letti {len(strumenti_campione)} strumenti validi dal registro.")
-        all_registry_ids = [s.id_certificato for s in strumenti_campione]
-        logger.debug(f"Loaded {len(all_registry_ids)} certificate IDs from registry: {all_registry_ids}")
         return strumenti_campione
     except Exception as e:
-        logger.error(f"Errore imprevisto durante lettura registro strumenti: {e}", exc_info=True)
+        logger.error(f"Errore lettura registro strumenti: {e}", exc_info=True)
         return None
 
+
 def read_instrument_sheet_raw_data(file_path: str) -> dict:
+    """Legge i dati grezzi da una scheda strumentale."""
     base_filename = os.path.basename(file_path)
     file_ext = os.path.splitext(base_filename)[1].lower()
     raw_data = {'file_path': file_path, 'base_filename': base_filename}
@@ -161,16 +166,30 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                     formula_str = str(cell_formula.value).strip().upper()
                     if formula_str.startswith('=') and any(err in formula_str for err in ['NA()', '#N/A', '#VALUE!', '#REF!']):
                         return "#FORMULA_ERROR#"
+<<<<<<< Updated upstream
 
                 cell_value = ws_values[coord_str]
                 val_found = cell_value.value
 
+=======
+                
+                # Altrimenti, ottieni il valore calcolato dalla vista valori
+                cell_value = ws_values[coord_str]
+                val_found = cell_value.value
+                
+                # Gestisci le celle unite usando l'attributo (ora disponibile)
+>>>>>>> Stashed changes
                 for merged_range in ws_values.merged_cells:
                     if cell_value.coordinate in merged_range:
                         top_left_cell = ws_values.cell(row=merged_range.min_row, column=merged_range.min_col)
                         val_found = top_left_cell.value
                         break
+<<<<<<< Updated upstream
 
+=======
+                
+                # Aggiungi la normalizzazione cruciale per i valori vuoti
+>>>>>>> Stashed changes
                 if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                     return None
                 return val_found
@@ -197,7 +216,7 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                             break
                 else:
                     val_found = xls_sheet.cell_value(r, c)
-
+                
                 if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                     return None
                 return val_found
@@ -243,53 +262,29 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['cert_expiries'] = [get_value(c) for c in ["M43", "M44", "M45"]]
             raw_data['cert_models'] = [get_value(c) for c in ["A43", "A44", "A45"]]
             raw_data['cert_ranges'] = [get_value(c) for c in ["G43", "G44", "G45"]]
-
+    
     finally:
-        if wb_values: wb_values.close()
-        if wb_formulas: wb_formulas.close()
+        if wb_values:
+            wb_values.close()
+        if wb_formulas:
+            wb_formulas.close()
 
     return raw_data
 
 
-def save_configuration(new_config: Dict[str, str]) -> bool:
-    try:
-        wb = load_workbook(config.PATH_FILE_PARAMETRI)
-        ws = wb[config.NOME_FOGLIO_PARAMETRI]
-
-        cell_map = {
-            'FILE_REGISTRO_STRUMENTI': 'B2',
-            'FOLDER_PATH_DEFAULT': 'B3',
-            'FILE_DATI_COMPILAZIONE_SCHEDE': 'B4',
-            'FILE_MASTER_DIGITALE_XLSX': 'B5',
-            'FILE_MASTER_ANALOGICO_XLSX': 'B6',
-        }
-
-        for key, cell in cell_map.items():
-            if key in new_config:
-                ws[cell] = new_config[key]
-
-        wb.save(config.PATH_FILE_PARAMETRI)
-        logger.info(f"Configurazione salvata con successo in {config.PATH_FILE_PARAMETRI}")
-        return True
-    except Exception as e:
-        logger.error(f"Errore durante il salvataggio della configurazione: {e}", exc_info=True)
-        return False
-
-
 def write_cell(file_path: str, cell_address: str, value) -> bool:
+    """Scrive un valore in una cella di un file .xlsx."""
     if not file_path.lower().endswith('.xlsx'):
-        logger.error(f"La scrittura è supportata solo per i file .xlsx. Impossibile modificare {os.path.basename(file_path)}")
+        logger.error(f"La scrittura e supportata solo per file .xlsx: {os.path.basename(file_path)}")
         return False
 
     try:
         wb = load_workbook(file_path)
         ws = wb.active
-
         ws[cell_address] = value
-
         wb.save(file_path)
-        logger.info(f"Cella {cell_address} in {os.path.basename(file_path)} aggiornata con valore '{value}'.")
+        logger.info(f"Cella {cell_address} in {os.path.basename(file_path)} aggiornata: '{value}'")
         return True
     except Exception as e:
-        logger.error(f"Impossibile scrivere nel file {file_path}. Errore: {e}", exc_info=True)
+        logger.error(f"Impossibile scrivere nel file {file_path}: {e}", exc_info=True)
         return False
