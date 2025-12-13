@@ -166,16 +166,30 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                     formula_str = str(cell_formula.value).strip().upper()
                     if formula_str.startswith('=') and any(err in formula_str for err in ['NA()', '#N/A', '#VALUE!', '#REF!']):
                         return "#FORMULA_ERROR#"
+<<<<<<< Updated upstream
 
                 cell_value = ws_values[coord_str]
                 val_found = cell_value.value
 
+=======
+                
+                # Altrimenti, ottieni il valore calcolato dalla vista valori
+                cell_value = ws_values[coord_str]
+                val_found = cell_value.value
+                
+                # Gestisci le celle unite usando l'attributo (ora disponibile)
+>>>>>>> Stashed changes
                 for merged_range in ws_values.merged_cells:
                     if cell_value.coordinate in merged_range:
                         top_left_cell = ws_values.cell(row=merged_range.min_row, column=merged_range.min_col)
                         val_found = top_left_cell.value
                         break
+<<<<<<< Updated upstream
 
+=======
+                
+                # Aggiungi la normalizzazione cruciale per i valori vuoti
+>>>>>>> Stashed changes
                 if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                     return None
                 return val_found
@@ -202,7 +216,7 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
                             break
                 else:
                     val_found = xls_sheet.cell_value(r, c)
-
+                
                 if pd.isna(val_found) or (isinstance(val_found, str) and not val_found.strip()):
                     return None
                 return val_found
@@ -248,7 +262,7 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['cert_expiries'] = [get_value(c) for c in ["M43", "M44", "M45"]]
             raw_data['cert_models'] = [get_value(c) for c in ["A43", "A44", "A45"]]
             raw_data['cert_ranges'] = [get_value(c) for c in ["G43", "G44", "G45"]]
-
+    
     finally:
         if wb_values:
             wb_values.close()
