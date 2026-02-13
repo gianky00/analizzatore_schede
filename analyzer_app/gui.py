@@ -1105,6 +1105,15 @@ FILE RICHIESTI:
             self.config_entries[key] = entry
             cmd = partial(self._browse_folder, entry) if is_folder else partial(self._browse_file, entry)
             ttk.Button(req_frame, text="Sfoglia", command=cmd).grid(row=row, column=2, padx=5, pady=8)
+            
+            # Button "Apri Cartella"
+            def open_dir(e=entry, folder=is_folder):
+                path = e.get()
+                if path:
+                    target = path if folder else os.path.dirname(path)
+                    self._open_path(target)
+            
+            ttk.Button(req_frame, text="Apri Cartella", command=open_dir).grid(row=row, column=3, padx=5, pady=8)
         
         req_frame.columnconfigure(1, weight=1)
         
@@ -1118,6 +1127,12 @@ FILE RICHIESTI:
             ("FILE_MASTER_ANALOGICO_XLSX", "Master Analogico:", False),
         ]
         
+        opt_descriptions = {
+            "FILE_DATI_COMPILAZIONE_SCHEDE": "File Excel (RIASSUNTO) per auto-compilazione dati.",
+            "FILE_MASTER_DIGITALE_XLSX": "Template Excel per schede Digitali.",
+            "FILE_MASTER_ANALOGICO_XLSX": "Template Excel per schede Analogiche."
+        }
+        
         for row, (key, label, is_folder) in enumerate(opt_items):
             ttk.Label(opt_frame, text=label).grid(row=row, column=0, sticky='w', padx=5, pady=8)
             entry = ttk.Entry(opt_frame, width=70)
@@ -1128,6 +1143,11 @@ FILE RICHIESTI:
             self.config_entries[key] = entry
             cmd = partial(self._browse_folder, entry) if is_folder else partial(self._browse_file, entry)
             ttk.Button(opt_frame, text="Sfoglia", command=cmd).grid(row=row, column=2, padx=5, pady=8)
+            
+            # Suggestion label
+            desc = opt_descriptions.get(key, "")
+            if desc:
+                ttk.Label(opt_frame, text=desc, font=('Segoe UI', 9), foreground=ThemeColors.TEXT_SECONDARY).grid(row=row, column=3, sticky='w', padx=10, pady=8)
         
         opt_frame.columnconfigure(1, weight=1)
         
