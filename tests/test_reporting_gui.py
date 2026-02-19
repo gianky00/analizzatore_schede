@@ -35,15 +35,21 @@ def test_gui_init_state():
     app = gui.App(MagicMock())
     assert hasattr(app, 'analysis_queue')
     assert hasattr(app, 'cert_details_map')
+    assert hasattr(app, 'analysis_service')
 
 def test_gui_start_analysis_logic():
-    with patch("analyzer_app.gui.multiprocessing.Queue") as mock_queue:
-        app = gui.App(MagicMock())
-        app.folder_path = MagicMock()
-        app.folder_path.get.return_value = "C:/test"
-        with patch("analyzer_app.gui.threading.Thread") as mock_thread:
+    """Verifica che start_analysis deleghi correttamente al servizio."""
+    app = gui.App(MagicMock())
+    app.folder_path = MagicMock()
+    app.folder_path.get.return_value = "C:/test"
+    
+    # Mocking config and registry reading
+    with patch("analyzer_app.config.is_config_valid", return_value=True):
+        with patch("analyzer_app.excel_io.leggi_registro_strumenti", return_value=[]):
+            # Mocking the service method
+            app.analysis_service.start_analysis = MagicMock()
             app.start_analysis()
-            assert mock_thread.called
+            app.analysis_service.start_analysis.assert_called_once()
 
 def test_gui_update_cert_details_map_logic():
     app = gui.App(MagicMock())
@@ -60,6 +66,6 @@ def test_gui_update_cert_details_map_logic():
         file_path="p", base_filename="f", status="", is_valid=True,
         certificate_usages=[usage]
     )
-    app.sheet_results = [sheet]
+    app.analysis_results = [sheet]
     app._update_cert_details_map()
     assert app.cert_details_map is not None

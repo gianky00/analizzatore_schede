@@ -18,19 +18,10 @@ from tkinter import filedialog, messagebox, ttk
 import pandas as pd
 import pyperclip  # type: ignore
 
-from . import analysis, config, excel_io, reporting
+from . import analysis, config, excel_io, reporting, services
 from .data_models import CertificateUsage, InstrumentSheet
 
 logger = logging.getLogger(__name__)
-
-
-def read_file_worker(q, file_path):
-    """Worker function for reading files in separate process."""
-    try:
-        raw_data = excel_io.read_instrument_sheet_raw_data(file_path)
-        q.put(('success', raw_data))
-    except Exception as e:
-        q.put(('error', e))
 
 
 # ============================================================================
@@ -111,6 +102,7 @@ class App:
         })
         self.last_clicked_item_id_for_toggle = [None]
         self.analysis_thread: threading.Thread | None = None
+        self.analysis_service = services.AnalysisService(self.analysis_queue)
 
         # Setup
         self._setup_styles()
@@ -400,7 +392,7 @@ class App:
             pass
 
     def start_analysis(self):
-        """Avvia l'analisi."""
+        """Avvia l'analisi delegando ad AnalysisService."""
         # Verifica configurazione
         if not config.is_config_valid():
             messagebox.showerror(
@@ -425,79 +417,14 @@ class App:
         self._log_message("Avvio analisi schede...", "INFO")
         self.progress_bar['value'] = 0
 
-        self.analysis_thread = threading.Thread(target=self._analysis_worker, daemon=True)
-        self.analysis_thread.start()
+        # Deleghiamo al servizio
+        self.strumenti_campione = excel_io.leggi_registro_strumenti() or []
+        self.analysis_service.start_analysis(config.FOLDER_PATH_DEFAULT, self.strumenti_campione)
+        
         self.root.after(50, self._check_analysis_queue)
 
-    def _analysis_worker(self):
-        """Worker thread per l'analisi."""
-        try:
-            self.analysis_queue.put(('log', ("Caricamento configurazione...", "INFO")))
-
-            self.analysis_queue.put(('log', ("Lettura registro strumenti campione...", "INFO")))
-            self.strumenti_campione = excel_io.leggi_registro_strumenti() or []
-            self.analysis_queue.put(('log', (f"Caricati {len(self.strumenti_campione)} strumenti dal registro.", "SUCCESS")))
-
-            folder_path = config.FOLDER_PATH_DEFAULT
-            if not folder_path or not os.path.isdir(folder_path):
-                raise NotADirectoryError(f"Cartella schede non valida: {folder_path}")
-
-            candidate_files = [
-                f for f in os.listdir(folder_path)
-                if f.lower().endswith(('.xls', '.xlsx')) and not f.startswith('~')
-            ]
-            self.candidate_files_count = len(candidate_files)
-
-            self.analysis_queue.put(('log', (f"Trovati {self.candidate_files_count} file da analizzare.", "INFO")))
-            self.analysis_queue.put(('total_files', self.candidate_files_count))
-
-            results = []
-            for i, filename in enumerate(candidate_files):
-                file_path = os.path.join(folder_path, filename)
-
-                self.analysis_queue.put(('log', (f"--- INIZIO file {i+1}/{self.candidate_files_count}: {filename} ---", "FILE")))
-                self.analysis_queue.put(('progress', (i + 1, f"Analisi: {filename}")))
-
-                try:
-                    q = multiprocessing.Queue()
-                    p = multiprocessing.Process(target=read_file_worker, args=(q, file_path))
-                    p.start()
-                    p.join(30)
-
-                    if p.is_alive():
-                        p.terminate()
-                        p.join()
-                        raise TimeoutError("Timeout lettura file (>30s)")
-
-                    status, result = q.get()
-                    if status == 'error':
-                        raise result
-
-                    raw_data = result
-                    sheet_result = analysis.analyze_sheet_data(raw_data, self.strumenti_campione)
-                    results.append(sheet_result)
-
-                    status_msg = "Valida" if sheet_result.is_valid else f"{len(sheet_result.human_errors)} errori"
-                    self.analysis_queue.put(('log', (f"--- FINE: {status_msg} ---", "SUCCESS" if sheet_result.is_valid else "WARNING")))
-
-                except Exception as e:
-                    logger.error(f"Errore analisi {filename}: {e}", exc_info=True)
-                    results.append(InstrumentSheet(
-                        file_path=file_path,
-                        base_filename=filename,
-                        status=f"Errore: {e}",
-                        is_valid=False
-                    ))
-                    self.analysis_queue.put(('log', (f"--- ERRORE: {str(e)[:50]} ---", "ERROR")))
-
-            self.analysis_queue.put(('done', results))
-
-        except Exception as e:
-            logger.critical(f"Errore fatale: {e}", exc_info=True)
-            self.analysis_queue.put(('error', e))
-
     def _check_analysis_queue(self):
-        """Controlla la coda messaggi."""
+        """Controlla la coda messaggi per aggiornare la UI."""
         try:
             messages_processed = 0
             while not self.analysis_queue.empty() and messages_processed < 15:
@@ -508,6 +435,7 @@ class App:
                     message, level = data if isinstance(data, tuple) else (data, "INFO")
                     self._log_message(message, level)
                 elif msg_type == 'total_files':
+                    self.candidate_files_count = data
                     self.progress_bar['maximum'] = data
                 elif msg_type == 'progress':
                     count, message = data
@@ -534,7 +462,8 @@ class App:
         except queue.Empty:
             pass
         finally:
-            if self.analysis_thread and self.analysis_thread.is_alive():
+            # Controllo se il thread del servizio è ancora attivo
+            if self.analysis_service._thread and self.analysis_service._thread.is_alive():
                 self.root.after(50, self._check_analysis_queue)
 
     def _process_final_results(self):
@@ -952,7 +881,7 @@ class App:
 
         info_text = """COMPILAZIONE AUTOMATICA SCHEDE
 
-Questa funzione compila automaticamente i campi anagrafici mancanti
+Questa funzione compila automaticamente i campi anagrafici mancanti 
 nelle schede (ODC, Data, PDL, Esecutore, Supervisore, Contratto).
 
 PROCESSO:
@@ -978,7 +907,7 @@ FILE RICHIESTI:
         info_label.pack(fill=tk.BOTH, expand=True)
 
     def _run_autofill(self):
-        """Esegue compilazione automatica."""
+        """Esegue compilazione automatica delegando al Service Layer."""
         self._log_message("Avvio compilazione automatica...", "INFO")
 
         if not config.FILE_DATI_COMPILAZIONE_SCHEDE or not os.path.exists(config.FILE_DATI_COMPILAZIONE_SCHEDE):
@@ -988,86 +917,22 @@ FILE RICHIESTI:
             return
 
         try:
-            df_source = pd.read_excel(config.FILE_DATI_COMPILAZIONE_SCHEDE, sheet_name=config.NOME_FOGLIO_DATI_COMPILAZIONE, engine='openpyxl', header=0)
-            self._log_message(f"Caricati {len(df_source)} record dal file sorgente.", "SUCCESS")
+            modifiche = services.AutofillService.run_autofill(
+                self.analysis_results,
+                config.FILE_DATI_COMPILAZIONE_SCHEDE,
+                self._log_message
+            )
+
+            if modifiche > 0:
+                self._log_message(f"Compilazione completata: {modifiche} schede modificate.", "SUCCESS")
+                messagebox.showinfo("Completato", f"{modifiche} schede sono state aggiornate.\n\nRianalizzare per verificare le modifiche.", parent=self.root)
+            else:
+                self._log_message("Nessuna scheda modificata.", "WARNING")
+                messagebox.showinfo("Completato", "Nessuna scheda e stata modificata.", parent=self.root)
+
         except Exception as e:
-            self._log_message(f"Errore lettura file sorgente: {e}", "ERROR")
-            messagebox.showerror("Errore", f"Impossibile leggere il file:\n{e}", parent=self.root)
-            return
-
-        schede_da_compilare = [res for res in self.analysis_results if any(e.key.startswith("COMP_") for e in res.human_errors) and res.file_path.lower().endswith('.xlsx')]
-
-        if not schede_da_compilare:
-            messagebox.showinfo("Info", "Nessuna scheda .xlsx con errori di compilazione trovata.", parent=self.root)
-            return
-
-        self._log_message(f"Trovate {len(schede_da_compilare)} schede da compilare.", "INFO")
-
-        col_mapping = {'data': config.COL_IDX_COMP_DATA, 'esecutore': config.COL_IDX_COMP_ESECUTORE, 'supervisore': config.COL_IDX_COMP_SUPERVISORE, 'odc': config.COL_IDX_COMP_ODC, 'pdl': config.COL_IDX_COMP_PDL}
-        modifiche = 0
-
-        for sheet in schede_da_compilare:
-            self._log_message(f"Elaborazione: {sheet.base_filename}", "FILE")
-            pdl_scheda = sheet.compilation_data.pdl_val if sheet.compilation_data else None
-            odc_scheda = sheet.compilation_data.odc_val_scheda if sheet.compilation_data else None
-            match_row = None
-
-            if pdl_scheda:
-                try:
-                    pdl_col = df_source.columns[col_mapping['pdl']]
-                    matches = df_source[df_source[pdl_col].astype(str).str.strip() == str(pdl_scheda).strip()]
-                    if not matches.empty:
-                        match_row = matches.iloc[0]
-                        self._log_message(f"  Match trovato per PDL: {pdl_scheda}", "SUCCESS")
-                except Exception as e:
-                    self._log_message(f"  Errore ricerca PDL: {e}", "WARNING")
-
-            if match_row is None and odc_scheda:
-                try:
-                    odc_col = df_source.columns[col_mapping['odc']]
-                    matches = df_source[df_source[odc_col].astype(str).str.strip() == str(odc_scheda).strip()]
-                    if not matches.empty:
-                        match_row = matches.iloc[0]
-                        self._log_message(f"  Match trovato per ODC: {odc_scheda}", "SUCCESS")
-                except Exception as e:
-                    self._log_message(f"  Errore ricerca ODC: {e}", "WARNING")
-
-            if match_row is None:
-                self._log_message("  Nessuna corrispondenza trovata, skip.", "WARNING")
-                continue
-
-            corrections_made = False
-            for error in sheet.human_errors:
-                if not error.key.startswith("COMP_") or not error.cell:
-                    continue
-                value_to_write = None
-                if "ODC" in error.key:
-                    value_to_write = match_row.iloc[col_mapping['odc']]
-                elif "DATA" in error.key:
-                    value_to_write = match_row.iloc[col_mapping['data']]
-                elif "ESECUTORE" in error.key:
-                    value_to_write = match_row.iloc[col_mapping['esecutore']]
-                elif "SUPERVISORE" in error.key:
-                    value_to_write = match_row.iloc[col_mapping['supervisore']]
-                elif "PDL" in error.key:
-                    value_to_write = match_row.iloc[col_mapping['pdl']]
-                elif "CONTRATTO" in error.key:
-                    value_to_write = config.VALORE_ATTESO_CONTRATTO_COEMI
-
-                if value_to_write is not None and not pd.isna(value_to_write):
-                    if excel_io.write_cell(sheet.file_path, error.cell, value_to_write):
-                        self._log_message(f"  Scritto {error.cell}: {value_to_write}", "SUCCESS")
-                        corrections_made = True
-
-            if corrections_made:
-                modifiche += 1
-
-        if modifiche > 0:
-            self._log_message(f"Compilazione completata: {modifiche} schede modificate.", "SUCCESS")
-            messagebox.showinfo("Completato", f"{modifiche} schede sono state aggiornate.\n\nRianalizzare per verificare le modifiche.", parent=self.root)
-        else:
-            self._log_message("Nessuna scheda modificata.", "WARNING")
-            messagebox.showinfo("Completato", "Nessuna scheda e stata modificata.", parent=self.root)
+            self._log_message(f"Errore durante l'autofill: {e}", "ERROR")
+            messagebox.showerror("Errore", f"Impossibile completare l'autofill:\n{e}", parent=self.root)
 
     def _populate_config_tab(self):
         """Popola la tab configurazione."""
@@ -1154,31 +1019,17 @@ FILE RICHIESTI:
         ttk.Button(btn_frame, text="Salva Configurazione", command=self._save_config, style="Accent.TButton").pack(side=tk.LEFT)
         ttk.Label(btn_frame, text="Le modifiche saranno applicate immediatamente", style="Subtitle.TLabel").pack(side=tk.LEFT, padx=20)
 
+    def _save_config(self):
+        """Salva configurazione delegando al Service Layer."""
+        new_config = {key: entry.get() for key, entry in self.config_entries.items()}
+        if services.ConfigService.save_and_reload(new_config):
+            messagebox.showinfo("Successo", "Configurazione salvata!", parent=self.root)
+        else:
+            messagebox.showerror("Errore", "Impossibile salvare la configurazione.", parent=self.root)
+
     def _update_cert_details_map(self):
-        """Aggiorna mappa dettagli certificati."""
-        self.cert_details_map.clear()
-        for usage in self.all_cert_usages:
-            if not usage.certificate_id:
-                continue
-            details = self.cert_details_map[usage.certificate_id]
-            if not details['id']:
-                details['id'] = usage.certificate_id
-            details['utilizzi'] += 1
-            details['dettaglio_usi_list'].append(usage)
-            if usage.card_date:
-                details['date_utilizzo_obj_set'].add(usage.card_date)
-            if usage.instrument_range_on_card and usage.instrument_range_on_card != "N/D":
-                details['range_su_scheda_counter'][usage.instrument_range_on_card] += 1
-            if usage.tipologia_strumento_scheda and usage.tipologia_strumento_scheda != "N/D":
-                details['tipologie_scheda_associate_counter'][usage.tipologia_strumento_scheda] += 1
-            if usage.is_congruent is True:
-                details['usi_congrui'] += 1
-            elif usage.is_congruent is False:
-                details['usi_total_incongrui'] += 1
-            if usage.used_before_emission:
-                details['usi_prima_emissione'] += 1
-            elif usage.is_expired_at_use:
-                details['usi_scaduti_puri'] += 1
+        """Aggiorna mappa dettagli certificati delegando al Service Layer."""
+        self.cert_details_map = services.StatisticsService.calculate_cert_details(self.analysis_results)
 
     def _prepare_data_for_treeview(self) -> list[dict]:
         """Prepara dati per treeview."""
@@ -1298,16 +1149,6 @@ FILE RICHIESTI:
         if folderpath:
             entry_widget.delete(0, tk.END)
             entry_widget.insert(0, folderpath)
-
-    def _save_config(self):
-        """Salva configurazione."""
-        new_config = {key: entry.get() for key, entry in self.config_entries.items()}
-        if config.save_config(new_config):
-            # Reload config
-            config.load_config_from_json()
-            messagebox.showinfo("Successo", "Configurazione salvata!", parent=self.root)
-        else:
-            messagebox.showerror("Errore", "Impossibile salvare la configurazione.", parent=self.root)
 
     def _sort_treeview(self, tree: ttk.Treeview, col: str, reverse: bool):
         """Ordina treeview."""
