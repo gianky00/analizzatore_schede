@@ -1,0 +1,3 @@
+[codespell]
+skip = .venv,build,dist,.git,test.db
+ignore-words-list = possibile,applicabile,cella,celle,impossibile,momento,valide,emiss

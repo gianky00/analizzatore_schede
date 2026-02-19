@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "analizzatore-schede"
+version = "1.0.0"
+description = "Analizzatore schede taratura"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "xlrd>=2.0.0",
+    "pyperclip>=1.8.0",
+    "python-docx>=0.8.0",
+]
+
+[tool.setuptools]
+packages = ["analyzer_app"]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy",
+    "bandit",
+    "deptry",
+    "codespell",
+    "refurb",
+    "vulture",
+    "xenon",
+    "interrogate",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pyfakefs",
+    "radon",
+    "pandas-stubs",
+    "types-requests",
+    "types-PyYAML",
+    "types-python-dateutil",
+    "types-xlrd",
+    "types-openpyxl"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".git", ".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF", "PERF", "T20"]
+ignore = ["E501"] # Gestito dal formatter
+fixable = ["ALL"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["analyzer_app"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = ["pyperclip.*", "docx.*", "customtkinter.*"]
+ignore_missing_imports = true
+
+[tool.deptry]
+extend_exclude = ["tests"]
+known_first_party = ["analyzer_app"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["pandas-stubs", "types-requests", "types-PyYAML", "types-python-dateutil", "types-xlrd", "types-openpyxl", "pytest", "ruff", "mypy", "bandit", "codespell", "refurb", "vulture", "xenon", "interrogate", "pre-commit"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+fail-under = 80
+exclude = ["tests", ".venv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--cov=analyzer_app --cov-report=term-missing"

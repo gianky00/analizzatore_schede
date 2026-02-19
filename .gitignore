@@ -42,3 +42,6 @@ Thumbs.db
 *.exe
 *.spec
 
+
+# Virtual Environment
+.venv/
