@@ -215,7 +215,7 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
         model_indicator_e2 = get_value('E2')
         model_indicator_e2_str = str(model_indicator_e2).strip().upper() if model_indicator_e2 else ""
 
-        if "STRUMENTI DIGITALI" in model_indicator_e2_str:
+        if config.INDICATORE_STRUMENTI_DIGITALI in model_indicator_e2_str:
             raw_data['file_type'] = "digitale"
             raw_data['sp_code'] = get_value(config.SCHEDA_DIG_CELL_TIPOLOGIA_STRUM)
             raw_data['range_um_processo'] = get_value(config.SCHEDA_DIG_CELL_RANGE_UM_PROCESSO)
@@ -225,12 +225,12 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['esecutore'] = get_value(config.SCHEDA_DIG_CELL_ESECUTORE)
             raw_data['supervisore'] = get_value(config.SCHEDA_DIG_CELL_SUPERVISORE_ISAB)
             raw_data['contratto'] = get_value(config.SCHEDA_DIG_CELL_CONTRATTO_COEMI)
-            raw_data['cert_ids'] = [get_value(c) for c in ["C18", "E18", "G18"]]
-            raw_data['cert_expiries'] = [get_value(c) for c in ["C19", "E19", "G19"]]
-            raw_data['cert_models'] = [get_value(c) for c in ["C13", "E13", "G13"]]
-            raw_data['cert_ranges'] = [get_value(c) for c in ["C16", "E16", "G16"]]
+            raw_data['cert_ids'] = [get_value(c) for c in config.SCHEDA_DIG_CERT_IDS]
+            raw_data['cert_expiries'] = [get_value(c) for c in config.SCHEDA_DIG_CERT_EXPIRIES]
+            raw_data['cert_models'] = [get_value(c) for c in config.SCHEDA_DIG_CERT_MODELS]
+            raw_data['cert_ranges'] = [get_value(c) for c in config.SCHEDA_DIG_CERT_RANGES]
 
-        elif "STRUMENTI ANALOGICI" in model_indicator_e2_str:
+        elif config.INDICATORE_STRUMENTI_ANALOGICI in model_indicator_e2_str:
             raw_data['file_type'] = "analogico"
             raw_data['sp_code'] = get_value(config.SCHEDA_ANA_CELL_TIPOLOGIA_STRUM)
             raw_data['modello_l9'] = get_value(config.SCHEDA_ANA_CELL_MODELLO_STRUM)
@@ -246,10 +246,10 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
             raw_data['esecutore'] = get_value(config.SCHEDA_ANA_CELL_ESECUTORE)
             raw_data['supervisore'] = get_value(config.SCHEDA_ANA_CELL_SUPERVISORE_ISAB)
             raw_data['contratto'] = get_value(config.SCHEDA_ANA_CELL_CONTRATTO_COEMI)
-            raw_data['cert_ids'] = [get_value(c) for c in ["K43", "K44", "K45"]]
-            raw_data['cert_expiries'] = [get_value(c) for c in ["M43", "M44", "M45"]]
-            raw_data['cert_models'] = [get_value(c) for c in ["A43", "A44", "A45"]]
-            raw_data['cert_ranges'] = [get_value(c) for c in ["G43", "G44", "G45"]]
+            raw_data['cert_ids'] = [get_value(c) for c in config.SCHEDA_ANA_CERT_IDS]
+            raw_data['cert_expiries'] = [get_value(c) for c in config.SCHEDA_ANA_CERT_EXPIRIES]
+            raw_data['cert_models'] = [get_value(c) for c in config.SCHEDA_ANA_CERT_MODELS]
+            raw_data['cert_ranges'] = [get_value(c) for c in config.SCHEDA_ANA_CERT_RANGES]
 
     finally:
         if wb_values:

@@ -86,6 +86,25 @@ SCHEDA_ANA_CELL_SUPERVISORE_ISAB = "L52"
 SCHEDA_ANA_CELL_CONTRATTO_COEMI = "B52"
 
 # ============================================================================
+# CELLE CERTIFICATI
+# ============================================================================
+# Analogico
+SCHEDA_ANA_CERT_IDS = ["K43", "K44", "K45"]
+SCHEDA_ANA_CERT_EXPIRIES = ["M43", "M44", "M45"]
+SCHEDA_ANA_CERT_MODELS = ["A43", "A44", "A45"]
+SCHEDA_ANA_CERT_RANGES = ["G43", "G44", "G45"]
+
+# Digitale
+SCHEDA_DIG_CERT_IDS = ["C18", "E18", "G18"]
+SCHEDA_DIG_CERT_EXPIRIES = ["C19", "E19", "G19"]
+SCHEDA_DIG_CERT_MODELS = ["C13", "E13", "G13"]
+SCHEDA_DIG_CERT_RANGES = ["C16", "E16", "G16"]
+
+# Indicatori Tipo Scheda (Cella E2)
+INDICATORE_STRUMENTI_DIGITALI = "STRUMENTI DIGITALI"
+INDICATORE_STRUMENTI_ANALOGICI = "STRUMENTI ANALOGICI"
+
+# ============================================================================
 # INDICI COLONNE FILE COMPILAZIONE
 # ============================================================================
 COL_IDX_COMP_DATA = 0
@@ -190,7 +209,7 @@ REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE = {
 }
 
 # Normalizza le regole
-for regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.values():
+for tipologia, regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.items():
     if "modelli_campione_congrui" in regole:
         regole["modelli_campione_congrui"] = [m.strip().upper() for m in regole["modelli_campione_congrui"]]
     if "modelli_campione_incongrui" in regole:
@@ -209,7 +228,7 @@ LISTA_UM_PRESSIONE_RICONOSCIUTE = sorted([
 ])
 
 MAPPA_NORMALIZZAZIONE_UM = {
-    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o",
+    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o", "mm H2O": "mmh2o",
     "kg/cm2": "kg/cm2", "kg/cm^2": "kg/cm2",
     "milliampere": "ma", "milli ampere": "ma", "milliamperes": "ma", "mamp": "ma",
     "percent": "%", "percentage": "%"
