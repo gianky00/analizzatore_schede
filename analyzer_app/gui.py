@@ -1,9 +1,5 @@
-"""
-GUI Module - Analizzatore Schede Taratura v8.1
-Modern Light Theme UI with improved responsiveness and colored logs
-"""
+import contextlib
 import logging
-import multiprocessing
 import os
 import queue
 import subprocess
@@ -15,7 +11,6 @@ from datetime import datetime
 from functools import partial
 from tkinter import filedialog, messagebox, ttk
 
-import pandas as pd
 import pyperclip  # type: ignore
 
 from . import analysis, config, excel_io, reporting, services
@@ -112,10 +107,8 @@ class App:
         """Configura gli stili ttk per un look moderno chiaro."""
         self.style = ttk.Style(self.root)
 
-        try:
+        with contextlib.suppress(tk.TclError):
             self.style.theme_use('clam')
-        except tk.TclError:
-            pass
 
         # Base configuration
         self.style.configure(".",
@@ -420,7 +413,7 @@ class App:
         # Deleghiamo al servizio
         self.strumenti_campione = excel_io.leggi_registro_strumenti() or []
         self.analysis_service.start_analysis(config.FOLDER_PATH_DEFAULT, self.strumenti_campione)
-        
+
         self.root.after(50, self._check_analysis_queue)
 
     def _check_analysis_queue(self):
@@ -881,7 +874,7 @@ class App:
 
         info_text = """COMPILAZIONE AUTOMATICA SCHEDE
 
-Questa funzione compila automaticamente i campi anagrafici mancanti 
+Questa funzione compila automaticamente i campi anagrafici mancanti
 nelle schede (ODC, Data, PDL, Esecutore, Supervisore, Contratto).
 
 PROCESSO:
@@ -1038,7 +1031,7 @@ FILE RICHIESTI:
             valid_dates = [d for d in details.get('date_utilizzo_obj_set', set()) if d]
             try:
                 date_rec = max(valid_dates).strftime('%d/%m/%Y') if valid_dates else "N/D"
-            except:
+            except Exception:
                 date_rec = "N/D"
             range_counter = details.get('range_su_scheda_counter', Counter())
             range_p = range_counter.most_common(1)[0][0] if range_counter else "N/D"
@@ -1158,10 +1151,9 @@ FILE RICHIESTI:
                 value = item_tuple[0]
                 if value in ("", "N/D"):
                     return (1, "")
-                try:
+                with contextlib.suppress(ValueError):
                     return (0, float(value))
-                except:
-                    return (0, str(value).lower())
+                return (0, str(value).lower())
             items.sort(key=sort_key, reverse=reverse)
             for idx, (_, item) in enumerate(items):
                 tree.move(item, '', idx)
