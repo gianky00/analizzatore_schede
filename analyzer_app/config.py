@@ -34,7 +34,7 @@ try:
     else:
         SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
         SCRIPT_DIR = os.path.dirname(SCRIPT_DIR)  # Vai alla root del progetto
-except:
+except Exception:
     SCRIPT_DIR = os.getcwd()
 
 CONFIG_FILE_PATH = os.path.join(SCRIPT_DIR, "config.json")
@@ -98,104 +98,63 @@ SCHEDA_ANA_CERT_RANGES = ["G43", "G44", "G45"]
 SCHEDA_DIG_CERT_IDS = ["C18", "E18", "G18"]
 SCHEDA_DIG_CERT_EXPIRIES = ["C19", "E19", "G19"]
 SCHEDA_DIG_CERT_MODELS = ["C13", "E13", "G13"]
-SCHEDA_DIG_CERT_RANGES = ["C16", "E16", "G16"]
-
-# Indicatori Tipo Scheda (Cella E2)
-INDICATORE_STRUMENTI_DIGITALI = "STRUMENTI DIGITALI"
-INDICATORE_STRUMENTI_ANALOGICI = "STRUMENTI ANALOGICI"
+SCHEDA_DIG_CERT_RANGES = ["E13", "G13", "I13"] # Nota: da verificare se corretti per il template
 
 # ============================================================================
-# INDICI COLONNE FILE COMPILAZIONE
+# INDICI COLONNE FILE DATI COMPILAZIONE
 # ============================================================================
 COL_IDX_COMP_DATA = 0
 COL_IDX_COMP_ESECUTORE = 1
-COL_IDX_COMP_SUPERVISORE = 3
-COL_IDX_COMP_ODC = 4
-COL_IDX_COMP_PDL = 5
+COL_IDX_COMP_SUPERVISORE = 2
+COL_IDX_COMP_ODC = 3
+COL_IDX_COMP_PDL = 4
 
 # ============================================================================
-# VALORI ATTESI
+# COSTANTI E MAPPATURE
 # ============================================================================
-VALORE_ATTESO_CONTRATTO_COEMI = "COEMI 4600002254"
-VALORE_ATTESO_CONTRATTO_COEMI_VARIANTE_NUMERICA = "4600002254"
+INDICATORE_STRUMENTI_DIGITALI = "STRUMENTI DIGITALI"
+INDICATORE_STRUMENTI_ANALOGICI = "STRUMENTI ANALOGICI"
+VALORE_ATTESO_CONTRATTO_COEMI = "3400006767"
+VALORE_ATTESO_CONTRATTO_COEMI_VARIANTE_NUMERICA = 3400006767
 
-# ============================================================================
-# CHIAVI DI ERRORE
-# ============================================================================
-KEY_TIPO_SCHEDA_SCONOSCIUTO = "TIPO_SCHEDA_SCONOSCIUTO"
-KEY_SP_VUOTO = "SP_VUOTO_O_ILLEGGIBILE"
-KEY_L9_VUOTO = "L9_VUOTO_O_ILLEGGIBILE"
-KEY_L9_SKINPOINT_INCOMPLETO = "L9_SKINPOINT_INCOMPLETO"
-KEY_CELL_RANGE_UM_NON_LEGGIBILE = "RANGE_UM_CELL_ILLEGGIBILE"
-KEY_ERR_ANA_TEMP_CONV_C9F9_UM_DIVERSE = "ERR_ANA_TEMP_CONV_C9F9_UM_DIVERSE"
-KEY_ERR_ANA_TEMP_CONV_F12_UM_NON_MA = "ERR_ANA_TEMP_CONV_F12_UM_NON_MA"
-KEY_ERR_ANA_TEMP_CONV_A9D9_RANGE_DIVERSI = "ERR_ANA_TEMP_CONV_A9D9_RANGE_DIVERSI"
-KEY_ERR_ANA_TEMP_CONV_D12_RANGE_NON_4_20 = "ERR_ANA_TEMP_CONV_D12_RANGE_NON_4_20"
-KEY_ERR_ANA_TEMP_NOCONV_UM_NON_COINCIDENTI = "ERR_ANA_TEMP_NOCONV_UM_NON_COINCIDENTI"
-KEY_ERR_ANA_TEMP_NOCONV_RANGE_NON_COINCIDENTI = "ERR_ANA_TEMP_NOCONV_RANGE_NON_COINCIDENTI"
-KEY_ERR_DIG_PRESS_D22_UM_NON_PRESSIONE = "ERR_DIG_PRESS_D22_UM_NON_PRESSIONE"
-KEY_ERR_DIG_LIVELLO_D22_UM_NON_PERCENTO = "ERR_DIG_LIVELLO_D22_UM_NON_PERCENTO"
-KEY_COMP_ANA_ODC_MANCANTE = "COMP_ANA_ODC_MANCANTE"
-KEY_COMP_ANA_DATA_COMP_MANCANTE = "COMP_ANA_DATA_COMP_MANCANTE"
-KEY_COMP_ANA_PDL_MANCANTE = "COMP_ANA_PDL_MANCANTE"
-KEY_COMP_ANA_ESECUTORE_MANCANTE = "COMP_ANA_ESECUTORE_MANCANTE"
-KEY_COMP_ANA_SUPERVISORE_MANCANTE = "COMP_ANA_SUPERVISORE_MANCANTE"
-KEY_COMP_ANA_CONTRATTO_MANCANTE = "COMP_ANA_CONTRATTO_MANCANTE"
-KEY_COMP_ANA_CONTRATTO_DIVERSO = "COMP_ANA_CONTRATTO_DIVERSO"
-KEY_COMP_DIG_ODC_MANCANTE = "COMP_DIG_ODC_MANCANTE"
-KEY_COMP_DIG_DATA_COMP_MANCANTE = "COMP_DIG_DATA_COMP_MANCANTE"
-KEY_COMP_DIG_PDL_MANCANTE = "COMP_DIG_PDL_MANCANTE"
-KEY_COMP_DIG_ESECUTORE_MANCANTE = "COMP_DIG_ESECUTORE_MANCANTE"
-KEY_COMP_DIG_SUPERVISORE_MANCANTE = "COMP_DIG_SUPERVISORE_MANCANTE"
-KEY_COMP_DIG_CONTRATTO_MANCANTE = "COMP_DIG_CONTRATTO_MANCANTE"
-KEY_COMP_DIG_CONTRATTO_DIVERSO = "COMP_DIG_CONTRATTO_DIVERSO"
-KEY_FORMULA_ERROR = "FORMULA_ERROR"
-
-# ============================================================================
-# MAPPE E REGOLE
-# ============================================================================
-MAPPA_SP_TIPOLOGIA = {
-    "SP 11/04": "LIVELLO", "SP 11-04": "LIVELLO",
-    "SP 11/03": "TEMPERATURA", "SP 11-03": "TEMPERATURA",
-    "SP 11/02": "PRESSIONE", "SP 11-02": "PRESSIONE",
-    "SP 11/01": "PORTATA", "SP 11-01": "PORTATA"
-}
-
+# Mappatura Tipologia -> Modello L9 atteso/possibile
+# (Solo come riferimento o per estensioni future, la logica principale è nelle regole congruenza)
 MAPPA_L9_SOTTOTIPO_NORMALIZZATA = {
-    "DP": ["PRESSIONE", "PORTATA", "LIVELLO"],
-    "CAPILLARE": ["PRESSIONE", "PORTATA", "LIVELLO"],
-    "TX": ["PRESSIONE"], "TX PRESSIONE": ["PRESSIONE"], "TX DI PRESSIONE": ["PRESSIONE"],
-    "TORSIONALE": ["LIVELLO"], "TORSIONALE PNEUMATICO": ["LIVELLO"], "TORSIONALE LOCALE": ["LIVELLO"],
-    "BARRA DI TORSIONE": ["LIVELLO"], "ONDA GUIDATA": ["LIVELLO"], "RADAR": ["LIVELLO"],
-    "ULTRASUONI": ["LIVELLO", "PORTATA"],
-    "K": ["TEMPERATURA_TERMOCOPPIA"], "J": ["TEMPERATURA_TERMOCOPPIA"],
-    "SKIN POINT K": ["TEMPERATURA_TERMOCOPPIA"], "SKIN POINT J": ["TEMPERATURA_TERMOCOPPIA"],
-    "TERMOCOPPIA K": ["TEMPERATURA_TERMOCOPPIA"], "TERMOCOPPIA J": ["TEMPERATURA_TERMOCOPPIA"],
-    "TERMOCOPPIA": ["TEMPERATURA_TERMOCOPPIA"], "TEMOCOPPIA J": ["TEMPERATURA_TERMOCOPPIA"],
-    "TC K": ["TEMPERATURA_TERMOCOPPIA"], "TC J": ["TEMPERATURA_TERMOCOPPIA"],
-    "K TC": ["TEMPERATURA_TERMOCOPPIA"], "J TC": ["TEMPERATURA_TERMOCOPPIA"],
-    "TERMOCOPPIA TIPO K": ["TEMPERATURA_TERMOCOPPIA"], "TERMOCOPPIA TIPO J": ["TEMPERATURA_TERMOCOPPIA"],
-    "RTD 3W": ["TEMPERATURA_RTD"], "RTD": ["TEMPERATURA_RTD"], "RTD 2W": ["TEMPERATURA_RTD"],
-    "TERMORESISTENZA": ["TEMPERATURA_RTD"], "PT100": ["TEMPERATURA_RTD"],
-    "CONVERTITORE": ["TEMPERATURA_CONVERTITORE"],
-    "INDICATORE LOCALE": ["LIVELLO", "PORTATA", "PRESSIONE", "TEMPERATURA"]
+    "CONVERTITORE": ["CONVERTITORE"],
+    "TERMOCOPPIA": ["TERMOCOPPIA"],
+    "TERMORESISTENZA": ["TERMORESISTENZA"],
+    "TRASMETTITORE": ["TRASMETTITORE"],
+    "MANOMETRO": ["MANOMETRO"],
+    "TERMOMETRO": ["TERMOMETRO"],
+    "LIVELLO": ["LIVELLO"], # Generico
+    "PORTATA": ["PORTATA"], # Generico
+    "SKIN": ["SKIN POINT"]
 }
 
+# Regole di congruità per Tipologia Strumento (cella N9/N10)
+# Struttura:
+# Tipologia -> {
+#   modelli_campione_congrui: [lista modelli certificato validi],
+#   modelli_campione_incongrui: [lista modelli certificato invalidi],
+#   sottotipi_l9: {
+#       SOTTOTIPO_L9: [lista modelli certificato validi specifici per questo sottotipo]
+#   },
+#   eccezioni_l9_incongrui: {
+#       SOTTOTIPO_L9: [lista modelli certificato invalidi specifici per questo sottotipo]
+#   }
+# }
 REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE = {
     "TEMPERATURA": {
-        "modelli_campione_congrui": ["CALIBR. TEMPERATURA"],
+        "modelli_campione_congrui": ["CALIBR. TEMPERATURA", "MULTIMETRO DIGITALE", "DECADE DI RESISTENZA", "CALIBRATORE DI LOOP"],
+        "modelli_campione_incongrui": ["MANOMETRO DIGITALE", "COMPARATORE"],
         "sottotipi_l9": {
-            "TEMPERATURA_TERMOCOPPIA": ["TERMOCOPPIA CAMPIONE", "MULTIMETRO DIGITALE"],
-            "TEMPERATURA_RTD": ["TERMORESISTENZA CAMPIONE", "MULTIMETRO DIGITALE"],
-            "TEMPERATURA_CONVERTITORE": ["MULTIMETRO DIGITALE", "CALIBRATORE DI LOOP"]
-        },
-        "modelli_campione_incongrui": ["MANOMETRO DIGITALE", "CALIBRATORE DI LOOP"],
-        "eccezioni_l9_incongrui": {
-            "TEMPERATURA_CONVERTITORE": ["MANOMETRO DIGITALE", "TERMOCOPPIA CAMPIONE", "TERMORESISTENZA CAMPIONE"]
+            "TERMOCOPPIA": ["CALIBR. TEMPERATURA"],
+            "TERMORESISTENZA": ["DECADE DI RESISTENZA", "CALIBR. TEMPERATURA"],
+            "CONVERTITORE": ["CALIBR. TEMPERATURA", "MULTIMETRO DIGITALE", "CALIBRATORE DI LOOP"]
         }
     },
     "PRESSIONE": {
-        "modelli_campione_congrui": ["MANOMETRO DIGITALE", "MULTIMETRO DIGITALE", "CALIBRATORE DI LOOP"],
+        "modelli_campione_congrui": ["MANOMETRO DIGITALE", "COMPARATORE", "CALIBRATORE DI LOOP", "MULTIMETRO DIGITALE"],
         "modelli_campione_incongrui": ["CALIBR. TEMPERATURA", "TERMOCOPPIA CAMPIONE", "TERMORESISTENZA CAMPIONE"]
     },
     "PORTATA": {
@@ -209,7 +168,7 @@ REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE = {
 }
 
 # Normalizza le regole
-for tipologia, regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.items():
+for regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.values():
     if "modelli_campione_congrui" in regole:
         regole["modelli_campione_congrui"] = [m.strip().upper() for m in regole["modelli_campione_congrui"]]
     if "modelli_campione_incongrui" in regole:
@@ -228,7 +187,7 @@ LISTA_UM_PRESSIONE_RICONOSCIUTE = sorted([
 ])
 
 MAPPA_NORMALIZZAZIONE_UM = {
-    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o", "mm H2O": "mmh2o",
+    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o",
     "kg/cm2": "kg/cm2", "kg/cm^2": "kg/cm2",
     "milliampere": "ma", "milli ampere": "ma", "milliamperes": "ma", "mamp": "ma",
     "percent": "%", "percentage": "%"
@@ -297,82 +256,46 @@ def excel_coord_to_indices(coord_str: str) -> tuple:
     col_idx = 0
     for i, char in enumerate(reversed(col_str)):
         col_idx += (ord(char) - ord('A') + 1) * (26 ** i)
-
-    return int(row_str) - 1, col_idx - 1
+    return int(row_s) - 1, col_idx - 1
 
 
 def is_config_valid() -> bool:
-    """Verifica se la configurazione e valida per avviare l'analisi."""
-    return bool(
-        FILE_REGISTRO_STRUMENTI and os.path.exists(FILE_REGISTRO_STRUMENTI) and
-        FOLDER_PATH_DEFAULT and os.path.isdir(FOLDER_PATH_DEFAULT)
-    )
-
-
-def load_config_from_json() -> bool:
-    """Carica la configurazione dal file JSON."""
-    global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
-    global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
-
-    if not os.path.exists(CONFIG_FILE_PATH):
-        logger.info(f"File configurazione non trovato: {CONFIG_FILE_PATH}")
+    """Controlla se la configurazione attuale è valida per l'analisi."""
+    if not FILE_REGISTRO_STRUMENTI or not os.path.exists(FILE_REGISTRO_STRUMENTI):
         return False
-
-    try:
-        with open(CONFIG_FILE_PATH, encoding='utf-8') as f:
-            data = json.load(f)
-
-        FILE_REGISTRO_STRUMENTI = data.get('FILE_REGISTRO_STRUMENTI')
-        FOLDER_PATH_DEFAULT = data.get('FOLDER_PATH_DEFAULT')
-        FILE_DATI_COMPILAZIONE_SCHEDE = data.get('FILE_DATI_COMPILAZIONE_SCHEDE')
-        FILE_MASTER_DIGITALE_XLSX = data.get('FILE_MASTER_DIGITALE_XLSX')
-        FILE_MASTER_ANALOGICO_XLSX = data.get('FILE_MASTER_ANALOGICO_XLSX')
-
-        logger.info("Configurazione caricata da JSON")
-        return True
-
-    except Exception as e:
-        logger.error(f"Errore caricamento config JSON: {e}")
+    if not FOLDER_PATH_DEFAULT or not os.path.exists(FOLDER_PATH_DEFAULT):
         return False
+    return True
 
 
 def save_config(new_config: dict) -> bool:
-    """Salva la configurazione nel file JSON."""
-    global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
-    global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
-
+    """Salva la configurazione su file JSON."""
     try:
-        # Aggiorna variabili globali
-        FILE_REGISTRO_STRUMENTI = new_config.get('FILE_REGISTRO_STRUMENTI', '').strip() or None
-        FOLDER_PATH_DEFAULT = new_config.get('FOLDER_PATH_DEFAULT', '').strip() or None
-        FILE_DATI_COMPILAZIONE_SCHEDE = new_config.get('FILE_DATI_COMPILAZIONE_SCHEDE', '').strip() or None
-        FILE_MASTER_DIGITALE_XLSX = new_config.get('FILE_MASTER_DIGITALE_XLSX', '').strip() or None
-        FILE_MASTER_ANALOGICO_XLSX = new_config.get('FILE_MASTER_ANALOGICO_XLSX', '').strip() or None
-
-        # Salva su file
-        config_data = {
-            'FILE_REGISTRO_STRUMENTI': FILE_REGISTRO_STRUMENTI,
-            'FOLDER_PATH_DEFAULT': FOLDER_PATH_DEFAULT,
-            'FILE_DATI_COMPILAZIONE_SCHEDE': FILE_DATI_COMPILAZIONE_SCHEDE,
-            'FILE_MASTER_DIGITALE_XLSX': FILE_MASTER_DIGITALE_XLSX,
-            'FILE_MASTER_ANALOGICO_XLSX': FILE_MASTER_ANALOGICO_XLSX,
-        }
-
-        with open(CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
-            json.dump(config_data, f, indent=2, ensure_ascii=False)
-
-        logger.info(f"Configurazione salvata in: {CONFIG_FILE_PATH}")
+        with open(CONFIG_FILE_PATH, 'w') as f:
+            json.dump(new_config, f, indent=4)
         return True
-
     except Exception as e:
         logger.error(f"Errore salvataggio config: {e}")
         return False
 
 
-def load_config():
-    """Funzione di compatibilita - carica config da JSON."""
-    load_config_from_json()
+def load_config_from_json():
+    """Carica la configurazione da file JSON."""
+    global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
+    global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX, VALIDATION_RULES
 
+    if os.path.exists(CONFIG_FILE_PATH):
+        try:
+            with open(CONFIG_FILE_PATH, 'r') as f:
+                data = json.load(f)
+                FILE_REGISTRO_STRUMENTI = data.get("FILE_REGISTRO_STRUMENTI")
+                FOLDER_PATH_DEFAULT = data.get("FOLDER_PATH_DEFAULT")
+                FILE_DATI_COMPILAZIONE_SCHEDE = data.get("FILE_DATI_COMPILAZIONE_SCHEDE")
+                FILE_MASTER_DIGITALE_XLSX = data.get("FILE_MASTER_DIGITALE_XLSX")
+                FILE_MASTER_ANALOGICO_XLSX = data.get("FILE_MASTER_ANALOGICO_XLSX")
+                VALIDATION_RULES = data.get("VALIDATION_RULES", [])
+        except Exception as e:
+            logger.error(f"Errore caricamento config: {e}")
 
-# Carica config all'import del modulo
+# Caricamento iniziale
 load_config_from_json()
