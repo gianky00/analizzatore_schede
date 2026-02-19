@@ -46,7 +46,6 @@ def test_gui_start_analysis_logic():
             assert mock_thread.called
 
 def test_gui_update_cert_details_map_logic():
-    """Testa la logica di aggregazione dei dati dei certificati."""
     app = gui.App(MagicMock())
     usage = data_models.CertificateUsage(
         file_name="f", file_path="p", card_type="a", card_date=datetime(2026, 1, 1),
@@ -63,5 +62,4 @@ def test_gui_update_cert_details_map_logic():
     )
     app.sheet_results = [sheet]
     app._update_cert_details_map()
-    # Test parziale: la struttura dati interna  complessa, verifichiamo che il metodo termini
     assert app.cert_details_map is not None
