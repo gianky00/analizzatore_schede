@@ -2,17 +2,16 @@
 """
 Modulo per lettura/scrittura file Excel.
 """
+import logging
 import os
 import re
-import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict
 from itertools import product
 
 import pandas as pd
 import xlrd
-from pandas.tseries.offsets import DateOffset
 from openpyxl import load_workbook
+from pandas.tseries.offsets import DateOffset
 
 from . import config
 
@@ -31,7 +30,7 @@ def excel_coord_to_indices(coord_str: str) -> tuple:
     return int(row_s) - 1, col_idx - 1
 
 
-def parse_date_robust(date_val, context_filename: str = "N/A") -> Optional[datetime]:
+def parse_date_robust(date_val, context_filename: str = "N/A") -> datetime | None:
     """
     Tenta di parsare una data da vari formati (stringa, timestamp, numero seriale Excel).
     """
@@ -74,7 +73,7 @@ def parse_date_robust(date_val, context_filename: str = "N/A") -> Optional[datet
     return None
 
 
-def leggi_registro_strumenti() -> Optional[List[config.CalibrationStandard]]:
+def leggi_registro_strumenti() -> list[config.CalibrationStandard] | None:
     """Legge il registro strumenti campione."""
     if not config.FILE_REGISTRO_STRUMENTI:
         logger.error("Percorso FILE_REGISTRO_STRUMENTI non configurato.")

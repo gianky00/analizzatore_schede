@@ -4,26 +4,25 @@ Modulo di configurazione per l'Analizzatore Schede Taratura.
 Salva e carica la configurazione da file JSON.
 """
 
-import os
-import sys
-import re
 import json
-from datetime import datetime, timezone
-from typing import List, Optional
 import logging
+import os
+import re
+import sys
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
 # ============================================================================
 # VARIABILI DI CONFIGURAZIONE
 # ============================================================================
-FILE_REGISTRO_STRUMENTI: Optional[str] = None
-FOLDER_PATH_DEFAULT: Optional[str] = None
-FILE_DATI_COMPILAZIONE_SCHEDE: Optional[str] = None
-FILE_MASTER_DIGITALE_XLSX: Optional[str] = None
-FILE_MASTER_ANALOGICO_XLSX: Optional[str] = None
-VALIDATION_RULES: List[dict] = []
-ANALYSIS_DATETIME = datetime.now(timezone.utc)
+FILE_REGISTRO_STRUMENTI: str | None = None
+FOLDER_PATH_DEFAULT: str | None = None
+FILE_DATI_COMPILAZIONE_SCHEDE: str | None = None
+FILE_MASTER_DIGITALE_XLSX: str | None = None
+FILE_MASTER_ANALOGICO_XLSX: str | None = None
+VALIDATION_RULES: list[dict] = []
+ANALYSIS_DATETIME = datetime.now(UTC)
 
 # ============================================================================
 # PERCORSI E FILE
@@ -191,7 +190,7 @@ REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE = {
 }
 
 # Normalizza le regole
-for tipologia, regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.items():
+for regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.values():
     if "modelli_campione_congrui" in regole:
         regole["modelli_campione_congrui"] = [m.strip().upper() for m in regole["modelli_campione_congrui"]]
     if "modelli_campione_incongrui" in regole:
@@ -210,7 +209,7 @@ LISTA_UM_PRESSIONE_RICONOSCIUTE = sorted([
 ])
 
 MAPPA_NORMALIZZAZIONE_UM = {
-    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o", "mm H2O": "mmh2o",
+    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o",
     "kg/cm2": "kg/cm2", "kg/cm^2": "kg/cm2",
     "milliampere": "ma", "milli ampere": "ma", "milliamperes": "ma", "mamp": "ma",
     "percent": "%", "percentage": "%"
@@ -274,12 +273,12 @@ def excel_coord_to_indices(coord_str: str) -> tuple:
     match = re.match(r"([A-Z]+)([0-9]+)", coord_str.upper())
     if not match:
         raise ValueError(f"Coordinata Excel non valida: {coord_str}")
-    
+
     col_str, row_str = match.groups()
     col_idx = 0
     for i, char in enumerate(reversed(col_str)):
         col_idx += (ord(char) - ord('A') + 1) * (26 ** i)
-    
+
     return int(row_str) - 1, col_idx - 1
 
 
@@ -295,24 +294,24 @@ def load_config_from_json() -> bool:
     """Carica la configurazione dal file JSON."""
     global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
     global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
-    
+
     if not os.path.exists(CONFIG_FILE_PATH):
         logger.info(f"File configurazione non trovato: {CONFIG_FILE_PATH}")
         return False
-    
+
     try:
-        with open(CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
+        with open(CONFIG_FILE_PATH, encoding='utf-8') as f:
             data = json.load(f)
-        
+
         FILE_REGISTRO_STRUMENTI = data.get('FILE_REGISTRO_STRUMENTI')
         FOLDER_PATH_DEFAULT = data.get('FOLDER_PATH_DEFAULT')
         FILE_DATI_COMPILAZIONE_SCHEDE = data.get('FILE_DATI_COMPILAZIONE_SCHEDE')
         FILE_MASTER_DIGITALE_XLSX = data.get('FILE_MASTER_DIGITALE_XLSX')
         FILE_MASTER_ANALOGICO_XLSX = data.get('FILE_MASTER_ANALOGICO_XLSX')
-        
+
         logger.info("Configurazione caricata da JSON")
         return True
-        
+
     except Exception as e:
         logger.error(f"Errore caricamento config JSON: {e}")
         return False
@@ -322,7 +321,7 @@ def save_config(new_config: dict) -> bool:
     """Salva la configurazione nel file JSON."""
     global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
     global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
-    
+
     try:
         # Aggiorna variabili globali
         FILE_REGISTRO_STRUMENTI = new_config.get('FILE_REGISTRO_STRUMENTI', '').strip() or None
@@ -330,7 +329,7 @@ def save_config(new_config: dict) -> bool:
         FILE_DATI_COMPILAZIONE_SCHEDE = new_config.get('FILE_DATI_COMPILAZIONE_SCHEDE', '').strip() or None
         FILE_MASTER_DIGITALE_XLSX = new_config.get('FILE_MASTER_DIGITALE_XLSX', '').strip() or None
         FILE_MASTER_ANALOGICO_XLSX = new_config.get('FILE_MASTER_ANALOGICO_XLSX', '').strip() or None
-        
+
         # Salva su file
         config_data = {
             'FILE_REGISTRO_STRUMENTI': FILE_REGISTRO_STRUMENTI,
@@ -339,13 +338,13 @@ def save_config(new_config: dict) -> bool:
             'FILE_MASTER_DIGITALE_XLSX': FILE_MASTER_DIGITALE_XLSX,
             'FILE_MASTER_ANALOGICO_XLSX': FILE_MASTER_ANALOGICO_XLSX,
         }
-        
+
         with open(CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
-        
+
         logger.info(f"Configurazione salvata in: {CONFIG_FILE_PATH}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Errore salvataggio config: {e}")
         return False
