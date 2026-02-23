@@ -4,26 +4,25 @@ Modulo di configurazione per l'Analizzatore Schede Taratura.
 Salva e carica la configurazione da file JSON.
 """
 
-import os
-import sys
-import re
 import json
-from datetime import datetime, timezone
-from typing import List, Optional
 import logging
+import os
+import re
+import sys
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
 # ============================================================================
 # VARIABILI DI CONFIGURAZIONE
 # ============================================================================
-FILE_REGISTRO_STRUMENTI: Optional[str] = None
-FOLDER_PATH_DEFAULT: Optional[str] = None
-FILE_DATI_COMPILAZIONE_SCHEDE: Optional[str] = None
-FILE_MASTER_DIGITALE_XLSX: Optional[str] = None
-FILE_MASTER_ANALOGICO_XLSX: Optional[str] = None
-VALIDATION_RULES: List[dict] = []
-ANALYSIS_DATETIME = datetime.now(timezone.utc)
+FILE_REGISTRO_STRUMENTI: str | None = None
+FOLDER_PATH_DEFAULT: str | None = None
+FILE_DATI_COMPILAZIONE_SCHEDE: str | None = None
+FILE_MASTER_DIGITALE_XLSX: str | None = None
+FILE_MASTER_ANALOGICO_XLSX: str | None = None
+VALIDATION_RULES: list[dict] = []
+ANALYSIS_DATETIME = datetime.now(UTC)
 
 # ============================================================================
 # PERCORSI E FILE
@@ -85,6 +84,25 @@ SCHEDA_ANA_CELL_PDL = "F50"
 SCHEDA_ANA_CELL_ESECUTORE = "F52"
 SCHEDA_ANA_CELL_SUPERVISORE_ISAB = "L52"
 SCHEDA_ANA_CELL_CONTRATTO_COEMI = "B52"
+
+# ============================================================================
+# CELLE CERTIFICATI
+# ============================================================================
+# Analogico
+SCHEDA_ANA_CERT_IDS = ["K43", "K44", "K45"]
+SCHEDA_ANA_CERT_EXPIRIES = ["M43", "M44", "M45"]
+SCHEDA_ANA_CERT_MODELS = ["A43", "A44", "A45"]
+SCHEDA_ANA_CERT_RANGES = ["G43", "G44", "G45"]
+
+# Digitale
+SCHEDA_DIG_CERT_IDS = ["C18", "E18", "G18"]
+SCHEDA_DIG_CERT_EXPIRIES = ["C19", "E19", "G19"]
+SCHEDA_DIG_CERT_MODELS = ["C13", "E13", "G13"]
+SCHEDA_DIG_CERT_RANGES = ["C16", "E16", "G16"]
+
+# Indicatori Tipo Scheda (Cella E2)
+INDICATORE_STRUMENTI_DIGITALI = "STRUMENTI DIGITALI"
+INDICATORE_STRUMENTI_ANALOGICI = "STRUMENTI ANALOGICI"
 
 # ============================================================================
 # INDICI COLONNE FILE COMPILAZIONE
@@ -274,12 +292,12 @@ def excel_coord_to_indices(coord_str: str) -> tuple:
     match = re.match(r"([A-Z]+)([0-9]+)", coord_str.upper())
     if not match:
         raise ValueError(f"Coordinata Excel non valida: {coord_str}")
-    
+
     col_str, row_str = match.groups()
     col_idx = 0
     for i, char in enumerate(reversed(col_str)):
         col_idx += (ord(char) - ord('A') + 1) * (26 ** i)
-    
+
     return int(row_str) - 1, col_idx - 1
 
 
@@ -295,24 +313,24 @@ def load_config_from_json() -> bool:
     """Carica la configurazione dal file JSON."""
     global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
     global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
-    
+
     if not os.path.exists(CONFIG_FILE_PATH):
         logger.info(f"File configurazione non trovato: {CONFIG_FILE_PATH}")
         return False
-    
+
     try:
-        with open(CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
+        with open(CONFIG_FILE_PATH, encoding='utf-8') as f:
             data = json.load(f)
-        
+
         FILE_REGISTRO_STRUMENTI = data.get('FILE_REGISTRO_STRUMENTI')
         FOLDER_PATH_DEFAULT = data.get('FOLDER_PATH_DEFAULT')
         FILE_DATI_COMPILAZIONE_SCHEDE = data.get('FILE_DATI_COMPILAZIONE_SCHEDE')
         FILE_MASTER_DIGITALE_XLSX = data.get('FILE_MASTER_DIGITALE_XLSX')
         FILE_MASTER_ANALOGICO_XLSX = data.get('FILE_MASTER_ANALOGICO_XLSX')
-        
+
         logger.info("Configurazione caricata da JSON")
         return True
-        
+
     except Exception as e:
         logger.error(f"Errore caricamento config JSON: {e}")
         return False
@@ -322,7 +340,7 @@ def save_config(new_config: dict) -> bool:
     """Salva la configurazione nel file JSON."""
     global FILE_REGISTRO_STRUMENTI, FOLDER_PATH_DEFAULT, FILE_DATI_COMPILAZIONE_SCHEDE
     global FILE_MASTER_DIGITALE_XLSX, FILE_MASTER_ANALOGICO_XLSX
-    
+
     try:
         # Aggiorna variabili globali
         FILE_REGISTRO_STRUMENTI = new_config.get('FILE_REGISTRO_STRUMENTI', '').strip() or None
@@ -330,7 +348,7 @@ def save_config(new_config: dict) -> bool:
         FILE_DATI_COMPILAZIONE_SCHEDE = new_config.get('FILE_DATI_COMPILAZIONE_SCHEDE', '').strip() or None
         FILE_MASTER_DIGITALE_XLSX = new_config.get('FILE_MASTER_DIGITALE_XLSX', '').strip() or None
         FILE_MASTER_ANALOGICO_XLSX = new_config.get('FILE_MASTER_ANALOGICO_XLSX', '').strip() or None
-        
+
         # Salva su file
         config_data = {
             'FILE_REGISTRO_STRUMENTI': FILE_REGISTRO_STRUMENTI,
@@ -339,13 +357,13 @@ def save_config(new_config: dict) -> bool:
             'FILE_MASTER_DIGITALE_XLSX': FILE_MASTER_DIGITALE_XLSX,
             'FILE_MASTER_ANALOGICO_XLSX': FILE_MASTER_ANALOGICO_XLSX,
         }
-        
+
         with open(CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
-        
+
         logger.info(f"Configurazione salvata in: {CONFIG_FILE_PATH}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Errore salvataggio config: {e}")
         return False

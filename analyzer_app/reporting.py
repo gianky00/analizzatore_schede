@@ -1,23 +1,22 @@
-import os
-import sys
-import subprocess
-import tempfile
 import logging
-from typing import List, Dict
+import os
+import subprocess
+import sys
+import tempfile
 from datetime import datetime
 
 from docx import Document
-from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt, RGBColor
 
 from . import config
 
 logger = logging.getLogger(__name__)
 
 def crea_e_apri_report_anomalie_word(
-    errors_list: List[Dict],
-    temporal_list: List[Dict],
-    incongruent_list: List[Dict],
+    errors_list: list[dict],
+    temporal_list: list[dict],
+    incongruent_list: list[dict],
     candidate_files_count: int,
     validated_file_count: int
 ) -> str:
@@ -111,7 +110,7 @@ def crea_e_apri_report_anomalie_word(
             p = doc.add_paragraph()
             p.add_run("File Scheda: ").bold = True
             p.add_run(f"{item['file_name']} ({item['file_path']})")
-            p_reason = doc.add_paragraph(f"  • Motivo Non Congruità: ", style='ListBullet')
+            p_reason = doc.add_paragraph("  • Motivo Non Congruità: ", style='ListBullet')
             run_reason = p_reason.add_run(item.get('congruency_notes','Non specificato'))
             run_reason.bold = True; run_reason.font.color.rgb = RGBColor(0x80, 0x00, 0x80)
             doc.add_paragraph()

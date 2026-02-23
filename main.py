@@ -2,12 +2,12 @@
 Analizzatore Schede Taratura - Main Entry Point
 Version 8.1
 """
-import tkinter as tk
-from tkinter import messagebox
 import logging
-import sys
 import os
+import sys
+import tkinter as tk
 import traceback
+from tkinter import messagebox
 
 # Ensure imports work correctly
 if getattr(sys, 'frozen', False):
@@ -23,10 +23,10 @@ def setup_logging():
     """Configura il logging."""
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    
+
     if logger.hasHandlers():
         logger.handlers.clear()
-    
+
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(logging.Formatter(
         '%(asctime)s - %(levelname)s - %(message)s',
@@ -39,30 +39,29 @@ def setup_logging():
 def main():
     """Punto di ingresso principale."""
     setup_logging()
-    
+
     try:
-        from analyzer_app import config
         from analyzer_app.gui import App
-        
+
         logging.info("Moduli caricati correttamente")
         logging.info("Avvio interfaccia grafica...")
-        
+
         root = tk.Tk()
         app = App(root)
         root.mainloop()
-        
+
     except Exception as e:
         error_msg = f"Errore critico:\n{type(e).__name__}: {e}"
         logging.critical(error_msg, exc_info=True)
-        
+
         # Save error to file
         error_file = os.path.join(APP_DIR, "errore_avvio.txt")
         with open(error_file, "w", encoding='utf-8') as f:
             f.write(f"{error_msg}\n\n{'='*50}\nTRACEBACK:\n{'='*50}\n")
             traceback.print_exc(file=f)
-        
+
         _show_error(f"{error_msg}\n\nDettagli salvati in 'errore_avvio.txt'")
-    
+
     finally:
         logging.info("Applicazione terminata.")
         logging.shutdown()

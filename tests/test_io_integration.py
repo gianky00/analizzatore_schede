@@ -1,10 +1,11 @@
-import pytest
-import os
-from openpyxl import Workbook
-from analyzer_app import excel_io, config
 from datetime import datetime
-import xlrd
 from unittest.mock import MagicMock, patch
+
+import pytest
+from openpyxl import Workbook
+
+from analyzer_app import config, excel_io, services
+
 
 @pytest.fixture
 def mock_registry_file(tmp_path):
@@ -32,26 +33,29 @@ def test_leggi_registro_non_esistente(monkeypatch):
     assert excel_io.leggi_registro_strumenti() is None
 
 def test_read_sheet_file_not_found():
-    with pytest.raises(Exception):
+    with pytest.raises(FileNotFoundError):
         excel_io.read_instrument_sheet_raw_data("missing.xlsx")
+
 
 def test_read_instrument_sheet_raw_data_xls_legacy():
     mock_book = MagicMock()
     mock_sheet = MagicMock()
     mock_book.sheet_by_index.return_value = mock_sheet
     mock_sheet.merged_cells = []
-    
-    # FIX: Calcoliamo gli indici REALI tramite la funzione di produzione per il mock
+
     r_e2, c_e2 = excel_io.excel_coord_to_indices("E2")
     r_odc, c_odc = excel_io.excel_coord_to_indices(config.SCHEDA_ANA_CELL_ODC)
-    
+
     def mock_cell_value(r, c):
-        if r == r_e2 and c == c_e2: return "STRUMENTI ANALOGICI"
-        if r == r_odc and c == c_odc: return "ODC-XLS"
+        if r == r_e2 and c == c_e2:
+            return "STRUMENTI ANALOGICI"
+        if r == r_odc and c == c_odc:
+            return "ODC-XLS"
         return None
-        
+
+
     mock_sheet.cell_value.side_effect = mock_cell_value
-    
+
     with patch("xlrd.open_workbook", return_value=mock_book):
         data = excel_io.read_instrument_sheet_raw_data("test.xls")
         assert data['file_type'] == "analogico"
@@ -64,9 +68,7 @@ def test_read_instrument_sheet_raw_data_xlsx(tmp_path):
     ws['E2'] = "SCHEDA TARATURA STRUMENTI ANALOGICI"
     ws[config.SCHEDA_ANA_CELL_ODC] = "ODC-OK"
     wb.save(file_path)
-    # Mockiamo load_workbook per evitare problemi di data_only=True su file appena creati
     data = excel_io.read_instrument_sheet_raw_data(str(file_path))
-    # Se openpyxl data_only fallisce, accettiamo None per non bloccare la suite
     if data.get('odc') is not None:
         assert data['odc'] == "ODC-OK"
 
@@ -80,3 +82,44 @@ def test_write_cell_xlsx(tmp_path):
     f = tmp_path / "w.xlsx"
     Workbook().save(f)
     assert excel_io.write_cell(str(f), "A1", "V") is True
+
+def test_config_save_and_load(tmp_path):
+    config_file = tmp_path / "config_test.json"
+    import analyzer_app.config as cfg
+    old_path = cfg.CONFIG_FILE_PATH
+    cfg.CONFIG_FILE_PATH = str(config_file)
+    try:
+        new_data = {
+            'FILE_REGISTRO_STRUMENTI': 'reg.xlsx',
+            'FOLDER_PATH_DEFAULT': 'cards/',
+            'FILE_DATI_COMPILAZIONE_SCHEDE': 'data.xlsx'
+        }
+        assert cfg.save_config(new_data) is True
+        assert cfg.load_config_from_json() is True
+        assert cfg.FILE_REGISTRO_STRUMENTI == 'reg.xlsx'
+    finally:
+        cfg.CONFIG_FILE_PATH = old_path
+
+def test_is_config_valid_logic(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "FILE_REGISTRO_STRUMENTI", None)
+    assert config.is_config_valid() is False
+    reg = tmp_path / "reg.xlsx"
+    reg.write_text("data")
+    monkeypatch.setattr(config, "FILE_REGISTRO_STRUMENTI", str(reg))
+    monkeypatch.setattr(config, "FOLDER_PATH_DEFAULT", str(tmp_path))
+    assert config.is_config_valid() is True
+
+def test_internal_read_file_worker_success(tmp_path):
+    """Testa il worker interno del service layer."""
+    import multiprocessing
+    f = tmp_path / "simple.xlsx"
+    wb = Workbook()
+    wb.active['E2'] = "DIGITALE"
+    wb.save(f)
+
+    q = multiprocessing.Queue()
+    services._read_file_worker_internal(q, str(f))
+
+    status, res = q.get()
+    assert status == 'success'
+    assert res['base_filename'] == "simple.xlsx"

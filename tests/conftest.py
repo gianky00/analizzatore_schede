@@ -1,6 +1,9 @@
-import pytest
 from datetime import datetime
+
+import pytest
+
 from analyzer_app.data_models import CalibrationStandard
+
 
 @pytest.fixture
 def sample_standard():
