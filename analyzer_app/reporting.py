@@ -19,7 +19,7 @@ def crea_e_apri_report_anomalie_word(
     incongruent_list: list[dict],
     candidate_files_count: int,
     validated_file_count: int
-) -> str:
+) -> str | None:
     """
     Crea un report Word con le anomalie, lo salva in una cartella temporanea,
     tenta di aprirlo e restituisce il percorso del file.

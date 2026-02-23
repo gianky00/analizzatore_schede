@@ -26,7 +26,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "dist\AnalizzatoreSchede.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Aggiungi qui eventuali file template o documentazione
-; Source: "templates\*"; DestDir: "{app}	emplates"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Source: "templates\*"; DestDir: "{app}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Analizzatore Schede Taratura"; Filename: "{app}\AnalizzatoreSchede.exe"
