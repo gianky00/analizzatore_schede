@@ -47,8 +47,9 @@ def main():
         logging.info("Avvio interfaccia grafica...")
 
         root = tk.Tk()
-        app = App(root)
+        App(root)
         root.mainloop()
+
 
     except Exception as e:
         error_msg = f"Errore critico:\n{type(e).__name__}: {e}"
@@ -74,8 +75,10 @@ def _show_error(message: str):
         root.withdraw()
         messagebox.showerror("Errore Applicazione", message)
         root.destroy()
-    except:
-        print(f"\nERRORE: {message}")
+    except Exception as e:
+        print(f"\nERRORE: {e}")  # noqa: T201
+
+
 
 
 if __name__ == "__main__":

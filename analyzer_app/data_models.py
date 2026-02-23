@@ -26,9 +26,10 @@ class CertificateUsage:
     instrument_range_on_card: str
     is_expired_at_use: bool
     tipologia_strumento_scheda: str
-    modello_L9_scheda: str
+    modello_l9_scheda: str
     modello_strumento_campione_usato: str
     is_congruent: bool | None
+
     congruency_notes: str
     used_before_emission: bool
 

@@ -7,11 +7,16 @@ import os
 import re
 from datetime import datetime, timedelta
 from itertools import product
+from typing import cast, Any
+
+
 
 import pandas as pd
 import xlrd
 from openpyxl import load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from pandas.tseries.offsets import DateOffset
+
 
 from . import config
 
@@ -30,9 +35,11 @@ def excel_coord_to_indices(coord_str: str) -> tuple:
     return int(row_s) - 1, col_idx - 1
 
 
-def parse_date_robust(date_val, context_filename: str = "N/A") -> datetime | None:
+def parse_date_robust(date_val: Any, context_filename: str = "N/A") -> datetime | None:
+
     """
     Tenta di parsare una data da vari formati (stringa, timestamp, numero seriale Excel).
+
     """
     if pd.isna(date_val):
         return None
@@ -155,11 +162,12 @@ def read_instrument_sheet_raw_data(file_path: str) -> dict:
     try:
         if file_ext == '.xlsx':
             wb_values = load_workbook(filename=file_path, data_only=True, read_only=False)
-            ws_values = wb_values.active
+            ws_values = cast(Worksheet, wb_values.active)
             wb_formulas = load_workbook(filename=file_path, data_only=False, read_only=False)
-            ws_formulas = wb_formulas.active
+            ws_formulas = cast(Worksheet, wb_formulas.active)
 
             def get_xlsx_value(coord_str):
+
                 cell_formula = ws_formulas[coord_str]
                 if cell_formula.data_type == 'f':
                     formula_str = str(cell_formula.value).strip().upper()
@@ -268,9 +276,10 @@ def write_cell(file_path: str, cell_address: str, value) -> bool:
 
     try:
         wb = load_workbook(file_path)
-        ws = wb.active
+        ws = cast(Worksheet, wb.active)
         ws[cell_address] = value
         wb.save(file_path)
+
         logger.info(f"Cella {cell_address} in {os.path.basename(file_path)} aggiornata: '{value}'")
         return True
     except Exception as e:

@@ -34,7 +34,7 @@ try:
     else:
         SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
         SCRIPT_DIR = os.path.dirname(SCRIPT_DIR)  # Vai alla root del progetto
-except:
+except Exception:
     SCRIPT_DIR = os.getcwd()
 
 CONFIG_FILE_PATH = os.path.join(SCRIPT_DIR, "config.json")
@@ -209,9 +209,10 @@ REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE = {
 }
 
 # Normalizza le regole
-for tipologia, regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.items():
+for regole in REGOLE_CONGRUITA_CERTIFICATI_NORMALIZZATE.values():
     if "modelli_campione_congrui" in regole:
         regole["modelli_campione_congrui"] = [m.strip().upper() for m in regole["modelli_campione_congrui"]]
+
     if "modelli_campione_incongrui" in regole:
         regole["modelli_campione_incongrui"] = [m.strip().upper() for m in regole["modelli_campione_incongrui"]]
     if "sottotipi_l9" in regole:
@@ -228,8 +229,9 @@ LISTA_UM_PRESSIONE_RICONOSCIUTE = sorted([
 ])
 
 MAPPA_NORMALIZZAZIONE_UM = {
-    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o", "mm H2O": "mmh2o",
+    "mm h2o": "mmh2o", "mmh2o": "mmh2o", "mm H2O": "mmh2o",
     "kg/cm2": "kg/cm2", "kg/cm^2": "kg/cm2",
+
     "milliampere": "ma", "milli ampere": "ma", "milliamperes": "ma", "mamp": "ma",
     "percent": "%", "percentage": "%"
 }

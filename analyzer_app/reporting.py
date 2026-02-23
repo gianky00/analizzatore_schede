@@ -55,8 +55,10 @@ def crea_e_apri_report_anomalie_word(
         current_file_comp_err = None
         for error in errori_comp_scheda_strutturali:
             if error['file'] != current_file_comp_err:
-                if current_file_comp_err is not None: doc.add_paragraph()
+                if current_file_comp_err is not None:
+                    doc.add_paragraph()
                 p_file = doc.add_paragraph()
+
                 p_file.add_run("File: ").bold = True
                 p_file.add_run(f"{error['file']} (Percorso: {error['path']})")
                 current_file_comp_err = error['file']
@@ -76,11 +78,14 @@ def crea_e_apri_report_anomalie_word(
             p.add_run(f"{item['file_name']} ({item['file_path']})")
             doc.add_paragraph(f"  • Data Scheda: {item['card_date_str']}", style='ListBullet')
             doc.add_paragraph(f"  • Certificato ID: {item['certificate_id']}", style='ListBullet')
-            p_cert_detail = doc.add_paragraph(f"  • CERTIFICATO CAMPIONE (da Registro): {item['modello_strumento_campione_usato']}", style='ListBullet')
+            doc.add_paragraph(f"  • CERTIFICATO CAMPIONE (da Registro): {item['modello_strumento_campione_usato']}", style='ListBullet')
             p_cert_detail_em = doc.add_paragraph(f"  • Data Emissione Certificato Campione: {item.get('data_emissione_presunta','N/A')}", style='ListBullet')
+
             run_em_note = p_cert_detail_em.add_run(" - USATO PRIMA DELL'EMISSIONE!")
-            run_em_note.bold = True; run_em_note.font.color.rgb = RGBColor(0xFF, 0x00, 0x00)
+            run_em_note.bold = True
+            run_em_note.font.color.rgb = RGBColor(0xFF, 0x00, 0x00)
             doc.add_paragraph()
+
         doc.add_paragraph()
 
     # Sezione 3: Certificati Scaduti Utilizzati
@@ -94,11 +99,14 @@ def crea_e_apri_report_anomalie_word(
             p.add_run(f"{item['file_name']} ({item['file_path']})")
             doc.add_paragraph(f"  • Data Scheda: {item['card_date_str']}", style='ListBullet')
             doc.add_paragraph(f"  • Certificato ID: {item['certificate_id']}", style='ListBullet')
-            p_cert_detail_exp = doc.add_paragraph(f"  • CERTIFICATO CAMPIONE (da Registro): {item['modello_strumento_campione_usato']}", style='ListBullet')
+            doc.add_paragraph(f"  • CERTIFICATO CAMPIONE (da Registro): {item['modello_strumento_campione_usato']}", style='ListBullet')
             p_cert_detail_scad = doc.add_paragraph(f"  • Data Scadenza Certificato Campione: {item.get('expiry_date_str','N/P')}", style='ListBullet')
+
             run_scad_note = p_cert_detail_scad.add_run(" - SCADUTO ALL'USO!")
-            run_scad_note.bold = True; run_scad_note.font.color.rgb = RGBColor(0xFF, 0x8C, 0x00)
+            run_scad_note.bold = True
+            run_scad_note.font.color.rgb = RGBColor(0xFF, 0x8C, 0x00)
             doc.add_paragraph(f"  • Note Congruità (se presenti): {item['congruency_notes']}", style='ListBullet')
+
             doc.add_paragraph()
         doc.add_paragraph()
 
@@ -112,8 +120,10 @@ def crea_e_apri_report_anomalie_word(
             p.add_run(f"{item['file_name']} ({item['file_path']})")
             p_reason = doc.add_paragraph("  • Motivo Non Congruità: ", style='ListBullet')
             run_reason = p_reason.add_run(item.get('congruency_notes','Non specificato'))
-            run_reason.bold = True; run_reason.font.color.rgb = RGBColor(0x80, 0x00, 0x80)
+            run_reason.bold = True
+            run_reason.font.color.rgb = RGBColor(0x80, 0x00, 0x80)
             doc.add_paragraph()
+
         doc.add_paragraph()
 
     # Sezione 5: Errori di Compilazione Campi Anagrafici
@@ -124,8 +134,10 @@ def crea_e_apri_report_anomalie_word(
         current_file_comp_campi_err = None
         for error in errori_comp_campi_scheda:
             if error['file'] != current_file_comp_campi_err:
-                if current_file_comp_campi_err is not None: doc.add_paragraph()
+                if current_file_comp_campi_err is not None:
+                    doc.add_paragraph()
                 p_file_campi = doc.add_paragraph()
+
                 p_file_campi.add_run("File: ").bold = True
                 p_file_campi.add_run(f"{error['file']} (Percorso: {error['path']})")
                 current_file_comp_campi_err = error['file']
